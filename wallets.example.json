@@ -1,0 +1,31 @@
+{
+  "candidatos": {
+    "candidato1": {
+      "wallet_id":"your_wallet_id_candidato1",
+      "invoice_key": "your_invoice_key_candidato1",
+      "display_name": "Candidato A"
+    },
+    "candidato2": {
+      "wallet_id":"your_wallet_id_candidato2",
+      "invoice_key": "your_invoice_key_candidato2",
+      "display_name": "Candidato B"
+    },
+    "candidato3": {
+      "wallet_id":"your_wallet_id_candidato3",
+      "invoice_key": "your_invoice_key_candidato3",
+      "display_name": "Candidato C"
+    }
+  },
+  "mesas": {
+    "mesa0": {
+      "wallet_id":"your_wallet_id_mesa0",
+      "invoice_key": "your_invoice_key_mesa0",
+      "display_name": "Mesa Electoral 0"
+    },
+    "mesa1": {
+      "wallet_id":"your_wallet_id_mesa1",
+      "invoice_key": "your_invoice_key_mesa1",
+      "display_name": "Mesa Electoral 1"
+    }
+  }
+}

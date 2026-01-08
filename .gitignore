@@ -1,0 +1,7 @@
+# Archivos sensibles de sistema-votacion-btc
+data/
+.env
+*.env
+*.sqlite3
+wallets.json
+
