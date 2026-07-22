@@ -1,7 +1,40 @@
-# Archivos sensibles de sistema-votacion-btc
-data/
+# ============================================================================
+# ARCHIVOS SENSIBLES Y CONFIGURACIONES PRIVADAS DE REGISTRO / API KEYS
+# ============================================================================
+# Contienen Admin Keys e Invoice Keys reales de LNbits
+data/wallets.json
+mesa_code/data_mesa/mesa_config.json
+mesa_code/data_mesa/candidatos.json
+
+# Archivos de Variables de Entorno
 .env
 *.env
-*.sqlite3
-wallets.json
+.env.*
 
+# ============================================================================
+# BASES DE DATOS SQLITE Y REGISTROS LOCALES
+# ============================================================================
+*.sqlite3
+*.db
+data/database.sqlite3
+mesa_code/data_mesa/votos_local.db
+
+# ============================================================================
+# LOGS Y CACHES DE PYTHON
+# ============================================================================
+logs/
+*.log
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# ============================================================================
+# ARCHIVOS DE ENTORNO VIRTUAL Y EDITOR
+# ============================================================================
+venv/
+env/
+.venv/
+.vscode/
+.idea/
+.DS_Store

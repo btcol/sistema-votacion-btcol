@@ -1,31 +1,53 @@
 {
-  "candidatos": {
-    "candidato1": {
-      "wallet_id":"your_wallet_id_candidato1",
-      "invoice_key": "your_invoice_key_candidato1",
-      "display_name": "Candidato A"
-    },
-    "candidato2": {
-      "wallet_id":"your_wallet_id_candidato2",
-      "invoice_key": "your_invoice_key_candidato2",
-      "display_name": "Candidato B"
-    },
-    "candidato3": {
-      "wallet_id":"your_wallet_id_candidato3",
-      "invoice_key": "your_invoice_key_candidato3",
-      "display_name": "Candidato C"
-    }
+  "settings": {
+    "url_lnbits": "http://tu_nodo_lnbits_o_tor.onion",
+    "sats_per_vote": 100,
+    "show_sats_and_votes": true,
+    "puerto_web": 5050
   },
-  "mesas": {
-    "mesa0": {
-      "wallet_id":"your_wallet_id_mesa0",
-      "invoice_key": "your_invoice_key_mesa0",
-      "display_name": "Mesa Electoral 0"
+  "candidatos": [
+    {
+      "id": "candidato1",
+      "nombre": "Candidato Bob",
+      "wallet_id": "tu_wallet_id_candidato1",
+      "api_key": "tu_invoice_key_candidato1",
+      "url_lnbits": "http://tu_nodo_lnbits_o_tor.onion",
+      "foto_local": "fotos/bob.png",
+      "estado": "activo"
     },
-    "mesa1": {
-      "wallet_id":"your_wallet_id_mesa1",
-      "invoice_key": "your_invoice_key_mesa1",
-      "display_name": "Mesa Electoral 1"
+    {
+      "id": "candidato2",
+      "nombre": "Candidato Alice",
+      "wallet_id": "tu_wallet_id_candidato2",
+      "api_key": "tu_invoice_key_candidato2",
+      "url_lnbits": "http://tu_nodo_lnbits_o_tor.onion",
+      "foto_local": "fotos/alice.png",
+      "estado": "activo"
+    },
+    {
+      "id": "VotoEnBlanco",
+      "nombre": "Voto en Blanco",
+      "wallet_id": "tu_wallet_id_voto_blanco",
+      "api_key": "tu_invoice_key_voto_blanco",
+      "url_lnbits": "http://tu_nodo_lnbits_o_tor.onion",
+      "foto_local": "fotos/blanco.png",
+      "estado": "activo"
     }
-  }
+  ],
+  "mesas": [
+    {
+      "id": "mesa1",
+      "nombre": "Mesa Electoral 1",
+      "wallet_id": "tu_wallet_id_mesa1",
+      "api_key": "tu_invoice_key_mesa1",
+      "url_lnbits": "http://tu_nodo_lnbits_o_tor.onion"
+    },
+    {
+      "id": "mesa2",
+      "nombre": "Mesa Electoral 2",
+      "wallet_id": "tu_wallet_id_mesa2",
+      "api_key": "tu_invoice_key_mesa2",
+      "url_lnbits": "http://tu_nodo_lnbits_o_tor.onion"
+    }
+  ]
 }

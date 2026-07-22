@@ -1,400 +1,159 @@
-# LNBits Wallet Dashboard 🚀⚡ (Read-Only)
+# 📝 Sistema de Votación BTCOL (LNbits + Tor) 🚀
 
-Dashboard interactivo en Python para **monitorear en tiempo real** el estado de múltiples wallets de LNBits. Versión de solo lectura usando Invoice Keys para máxima seguridad.
+Sistema integral, transparente, auditable y de alta disponibilidad para **votaciones electrónicas democráticas** basado en la red **Bitcoin Lightning Network**, **LNbits** y enrutamiento anónimo **Tor (.onion)**.
 
-## 🎯 Características
+El sistema permite realizar elecciones electrónicas en las cuales cada voto se emite mediante una transacción Lightning Network desde la wallet de una **Mesa Electoral** hacia la wallet del **Candidato** seleccionado, registrando un memo criptográfico inalterable. 
 
-✅ **Monitoreo en Tiempo Real**
-- Visualización de saldo de múltiples wallets
-- Estatus de conexión (online/offline)
-- Actualización automática cada 30 segundos
-- Historial de invoices/pagos recientes
-
-✅ **Modo Read-Only (Seguro)**
-- Usa Invoice Keys en lugar de Admin Keys
-- Solo lectura: sin permisos de crear o pagar
-- Perfecto para dashboards públicos o compartidos
-- Máxima seguridad
-
-✅ **Interfaz Moderna**
-- Responsive design (funciona en móvil, tablet y desktop)
-- Animaciones suaves
-- Sistema de tarjetas intuitivo
-- Indicadores de estado visual
-
-✅ **API RESTful**
-- Endpoints para obtener estado de wallets
-- Endpoint para historial de pagos
-- Respuestas JSON estructuradas
-- Manejo robusto de errores
-
-## 📋 Requisitos
-
-### Sistema
-- Python 3.8+
-- pip (gestor de paquetes de Python)
-- Acceso a una instancia de LNBits (local o remota)
-
-### Paquetes Python
-```bash
-pip install -r requirements.txt
-```
-
-## ⚙️ Configuración
-
-### 1. Instalar dependencias
-
-```bash
-pip install flask flask-cors requests python-dotenv
-```
-
-O usar requirements.txt:
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Obtener Invoice Keys de LNBits
-
-Para cada wallet que quieras monitorear:
-
-1. Abre tu instancia de LNBits
-2. Selecciona la wallet (ej: "candidato1")
-3. Ve a **API Keys** o **Acceso a la API**
-4. Copia la **Invoice Key** (es la read-only key, más segura)
-
-**⚠️ IMPORTANTE**: 
-- Usa **Invoice Keys** (read-only), no Admin Keys
-- Las Invoice Keys solo permiten lectura
-- No pueden crear, pagar, ni modificar nada
-- Perfectas para dashboards públicos
-
-### 3. Configurar variables de entorno
-
-**Opción A: Archivo .env (Recomendado)**
-
-Copia el archivo de ejemplo:
-```bash
-cp .env.example .env
-```
-
-Edita `.env` con tus Invoice Keys:
-```env
-LNBITS_ENDPOINT=http://localhost:5000
-WALLET_CANDIDATO1=tu_invoice_key_candidato1
-WALLET_CANDIDATO2=tu_invoice_key_candidato2
-WALLET_MESA0=tu_invoice_key_mesa0
-```
-
-**Opción B: Variables de entorno (Linux/Mac)**
-
-```bash
-export LNBITS_ENDPOINT="http://localhost:5000"
-export WALLET_CANDIDATO1="tu_invoice_key_candidato1"
-export WALLET_CANDIDATO2="tu_invoice_key_candidato2"
-export WALLET_MESA0="tu_invoice_key_mesa0"
-```
-
-**Opción C: Variables de entorno (Windows PowerShell)**
-
-```powershell
-$env:LNBITS_ENDPOINT="http://localhost:5000"
-$env:WALLET_CANDIDATO1="tu_invoice_key_candidato1"
-$env:WALLET_CANDIDATO2="tu_invoice_key_candidato2"
-$env:WALLET_MESA0="tu_invoice_key_mesa0"
-```
-
-## 🚀 Ejecución
-
-### Opción 1: Ejecución directa
-
-```bash
-python lnbits_dashboard.py
-```
-
-### Opción 2: Con variables de entorno en línea (Linux/Mac)
-
-```bash
-LNBITS_ENDPOINT="http://localhost:5000" \
-WALLET_CANDIDATO1="clave1" \
-WALLET_CANDIDATO2="clave2" \
-WALLET_MESA0="clave3" \
-python lnbits_dashboard.py
-```
-
-### Opción 3: Setup interactivo
-
-```bash
-python setup.py
-```
-
-Este script se encarga de:
-- Verificar Python 3.8+
-- Instalar dependencias automáticamente
-- Configurar .env interactivamente
-- Probar la conexión con LNBits
-
-## 🌐 Acceso al Dashboard
-
-Una vez ejecutado, accede a:
-
-```
-http://localhost:5000
-```
-
-El dashboard mostrará:
-- 📊 Tarjeta para cada wallet con saldo en tiempo real
-- 🟢 Indicador de estado (online/offline)
-- 📋 Últimos pagos/invoices de cada wallet
-- 🔄 Botón para refrescar manualmente
-- 🔒 Indicador de modo "Read Only"
-
-## 📡 API Endpoints
-
-### GET `/`
-Retorna el dashboard HTML
-
-### GET `/api/wallets/status`
-Obtiene el estado de todas las wallets
-
-**Respuesta:**
-```json
-{
-  "success": true,
-  "wallets": [
-    {
-      "name": "candidato1",
-      "balance": 100000,
-      "invoice_key": "abc12345...",
-      "last_update": "2024-01-02T12:35:00",
-      "is_available": true,
-      "error_message": null
-    }
-  ]
-}
-```
-
-### GET `/api/wallets/<wallet_name>/status`
-Obtiene el estado de una wallet específica
-
-**Ejemplo:**
-```bash
-curl http://localhost:5000/api/wallets/candidato1/status
-```
-
-### GET `/api/wallets/<wallet_name>/payments`
-Obtiene el historial de pagos/invoices de una wallet
-
-**Parámetros:**
-- `limit` (opcional): Número máximo de pagos a retornar (default: 20)
-
-**Ejemplo:**
-```bash
-curl http://localhost:5000/api/wallets/candidato1/payments?limit=10
-```
-
-### GET `/health`
-Health check del servidor
-
-**Respuesta:**
-```json
-{
-  "status": "healthy",
-  "mode": "read-only"
-}
-```
-
-## 🔌 Integración con tu instancia de LNBits
-
-### Endpoint Local (misma máquina)
-```env
-LNBITS_ENDPOINT=http://localhost:5000
-```
-
-### Endpoint Remoto (Tor/HTTPS)
-```env
-LNBITS_ENDPOINT=http://your-lnbits.onion
-LNBITS_ENDPOINT=https://your-lnbits.com
-```
-
-### Endpoint en Red Local
-```env
-LNBITS_ENDPOINT=http://192.168.1.100:5000
-```
-
-## 🔒 Seguridad
-
-### ¿Por qué Invoice Keys?
-
-| Característica | Admin Key | Invoice Key |
-|---|---|---|
-| Ver balance | ✅ | ✅ |
-| Ver pagos | ✅ | ✅ |
-| Crear invoices | ✅ | ❌ |
-| Pagar invoices | ✅ | ❌ |
-| Modificar config | ✅ | ❌ |
-| Eliminar datos | ✅ | ❌ |
-| **Seguridad** | ⚠️ Crítica | ✅ Alta |
-
-### Recomendaciones
-
-1. **Usa Invoice Keys siempre**
-   - No Admin Keys
-   - Solo lectura
-   - Máxima seguridad
-
-2. **Protege tu instancia LNBits**
-   - Usa HTTPS en producción
-   - Configura autenticación
-   - Restringe acceso por IP
-
-3. **No versionices secretos**
-   ```bash
-   echo ".env" >> .gitignore
-   ```
-
-4. **Rota las keys regularmente**
-   - Genera nuevas keys cada cierto tiempo
-   - Revoca keys antiguas
-   - Monitorea acceso
-
-## 📊 Estructura del Código
-
-```
-lnbits_dashboard.py
-├── Configuración          # Variables de entorno
-├── Modelos de Datos       # WalletDetails, Payment
-├── Cliente API            # Clase LNBitsClient (read-only)
-├── Lógica de Negocio      # Clase WalletMonitor
-├── Aplicación Flask       # Rutas y endpoints
-└── Template HTML          # Interfaz web
-```
-
-## 🛠️ Características de Desarrollo
-
-### Clase `LNBitsClient` (Read-Only)
-
-```python
-from lnbits_dashboard import LNBitsClient
-
-client = LNBitsClient(
-    endpoint="http://localhost:5000",
-    invoice_key="your_invoice_key",
-    timeout=10
-)
-
-# Obtener detalles de wallet
-details = client.get_wallet_details()
-print(f"Balance: {details['balance']} sats")
-
-# Obtener pagos/invoices
-payments = client.get_payments(limit=50)
-
-# Verificar pago específico
-status = client.check_payment(payment_hash="abc123...")
-
-# Decodificar invoice
-decoded = client.decode_invoice(bolt11="lnbc1000u1p3...")
-```
-
-### Clase `WalletMonitor`
-
-```python
-from lnbits_dashboard import WalletMonitor
-
-monitor = WalletMonitor(
-    endpoint="http://localhost:5000",
-    wallets_config={
-        "candidato1": "invoice_key_1",
-        "candidato2": "invoice_key_2",
-        "mesa0": "invoice_key_3"
-    }
-)
-
-# Obtener estado de todas las wallets
-statuses = monitor.get_all_wallets_status()
-
-# Obtener estado de una wallet
-status = monitor.get_wallet_status("candidato1")
-
-# Obtener pagos
-payments = monitor.get_wallet_payments("candidato1", limit=20)
-```
-
-## 🔧 Troubleshooting
-
-### Error: "No se puede conectar a LNBits"
-```
-✓ Verifica que LNBits está corriendo
-✓ Verifica la URL del ENDPOINT
-✓ Comprueba firewall/puertos
-✓ Revisa logs de LNBits
-```
-
-### Error: "Invoice key inválida"
-```
-✓ Verifica que copiaste la Invoice Key (no Admin Key)
-✓ Copia sin espacios adicionales
-✓ La key no debe estar expirada
-✓ Verifica permisos en LNBits
-```
-
-### Error: "Timeout"
-```
-✓ Aumenta REQUEST_TIMEOUT en el código
-✓ Verifica velocidad de red
-✓ Comprueba si LNBits está sobrecargado
-```
-
-### Dashboard en blanco
-```
-✓ Abre la consola del navegador (F12)
-✓ Revisa logs de Flask en terminal
-✓ Verifica que los endpoints API responden:
-   curl http://localhost:5000/api/wallets/status
-```
-
-## 📚 Recursos Adicionales
-
-- [LNBits Documentación](https://docs.lnbits.org)
-- [LNBits GitHub](https://github.com/lnbits/lnbits)
-- [Lightning Network](https://lightning.network)
-- [BOLT11 Invoices](https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md)
-
-## 💡 Ejemplos de Uso
-
-### Verificar saldo de todas las wallets
-
-```bash
-curl http://localhost:5000/api/wallets/status | jq '.wallets[] | {name, balance}'
-```
-
-### Ver historial de pagos
-
-```bash
-curl http://localhost:5000/api/wallets/candidato1/payments | jq '.payments'
-```
-
-### Monitoreo continuo (cada 10 segundos)
-
-```bash
-watch -n 10 'curl -s http://localhost:5000/api/wallets/status | jq'
-```
-
-## 🚀 Próximas Mejoras (Opcionales)
-
-1. Agregar gráficos de balance en el tiempo
-2. WebSockets para actualizaciones en tiempo real
-3. Base de datos para historial persistente
-4. Alertas por cambios de balance
-5. Exportar reportes (CSV/PDF)
-6. Soporte para más wallets dinámicamente
-
-## 📄 Licencia
-
-Este proyecto es software libre y de código abierto.
+Incluye una **Urna Electoral BTCOL**, un **Dashboard de Monitoreo BTCOL en Tiempo Real** y un **Dashboard Web Interactivo de Auditoría Electoral BTCOL** con detección de irregularidades.
 
 ---
 
-**Creado con ❤️ para la comunidad Lightning Network**
+## 📸 Capturas de Pantalla de la Plataforma
 
-**Modo: 🔒 Solo Lectura (Read-Only)**
+> [!NOTE]
+> *Reemplaza las rutas de las imágenes en `docs/assets/` con las capturas de pantalla de tu despliegue real.*
+
+### 1. Urna Electoral BTCOL (Puerto 2007)
+![Urna Electoral BTCOL](docs/assets/urna_web_screenshot.png)
+
+### 2. Dashboard Web de Monitoreo en Tiempo Real (Puerto 5050)
+![Dashboard Principal de Votos](docs/assets/votos_dashboard_screenshot.png)
+
+### 3. Dashboard Interactivo de Auditoría Electoral BTCOL (Puerto 7070)
+![Dashboard de Auditoría Criptográfica](docs/assets/audit_dashboard_screenshot.png)
+
+---
+
+## 🎯 Funcionalidades y Capacidades Avanzadas
+
+### 🧅 1. Conectividad Nativa Cifrada vía Red Anónima Tor (.onion)
+- Todas las peticiones HTTP a la API de LNbits se enrutan de forma cifrada a través del proxy **Tor SOCKS5h (`socks5h://127.0.0.1:9050`)**.
+- Garantiza la privacidad y el anonimato de las comunicaciones entre las Mesas Electorales, los Dashboards y el nodo Lightning.
+- Incorpora mecanismos de **reintento automático y timeout extendido (25s)** ante fluctuaciones o reconstrucción de circuitos `.onion`.
+
+### 🛡️ 2. Límite de Capacidad Dinámico e Inmanipulable por Saldo Real
+- La capacidad autorizada de votos de cada Mesa Electoral **se calcula matemáticamente en tiempo real** en función del saldo en satoshis de su wallet de LNbits:
+  $$\text{Votos Disponibles} = \left\lfloor \frac{\text{Saldo Actual de Wallet Mesa (Sats)}}{\text{Monto por Voto (ej: 100 Sats)}} \right\rfloor$$
+- **Imposible de manipular localmente**: No existen valores enteros estáticos en archivos de configuración locales.
+- **Bloqueo en Backend**: Si la wallet se queda sin saldo (`votos_disponibles < 1`), la Urna Electoral rechaza la solicitud de voto con HTTP 403 antes de registrarla en la base de datos local SQLite.
+- **Indicador en Vivo & Banner de Cierre**: La interfaz de la mesa muestra un badge en vivo con los votos restantes y cierra automáticamente la pantalla táctil cuando la capacidad se agota.
+
+### 👥 3. Rediseño del Dashboard Principal (`frontend/votos_dashboard.py` - Puerto 5050)
+- **Tarjetas Divididas en 2 Columnas**:
+  - **Mitad Izquierda**: Fotografía oficial del candidato ampliada a 120px con borde de resplandor dorado Bitcoin (`#F7931A`) y nombre del participante centrado debajo de la foto.
+  - **Mitad Derecha**: Conteo de votos confirmados en tipografía `Outfit`, barra de progreso con el porcentaje relativo acumulado y marca de hora de actualización (`🕒 Actualizado: HH:MM:SS`).
+- **Resiliencia de Conteos**: Implementación de una cache de último estado conocido (`last_known_status`) para mantener fijos y estables los votos de los candidatos ante pequeñas fluctuaciones de la red Tor, evitando parpadeos a 0 votos.
+
+### ⚖️ 4. Dashboard Web Interactivo de Auditoría (`audit/auditoria_ln_votos.py` - Puerto 7070)
+- **Navegación por Pestañas**:
+  - **`📊 Resumen & Gráficos`**: Vista ejecutiva con tarjetas KPI, alerta de seguridad, matriz Origen ➔ Destino y gráfico interactivo de barras.
+  - **`📜 Registro General de Transacciones`**: Listado exhaustivo de todas las transacciones auditadas.
+- **Gráfico de Barras Dinámico con Chart.js**: Gráfico interactivo que se actualiza en tiempo real al aplicar filtros por Mesa, Candidato, Estado o Búsqueda.
+- **🚨 Detección Criptográfica de Votos Irregulares**: Identifica y aísla automáticamente cualquier voto o transacción acreditada a un candidato que provenga de una `wallet_id` o fuente externa **no registrada en `data/wallets.json`**.
+- **Matriz Electoral Origen ➔ Destino**: Tabla cruzada que demuestra de forma transparente cuántos votos envió cada Mesa Electoral a cada Candidato.
+
+### 🚀 5. Arquitectura 100% Escalable e Impulsada por Datos (Data-Driven)
+- El sistema escala de forma totalmente dinámica: para agregar 5, 10 o 100 nuevas Mesas o Candidatos, **únicamente debes agregarlos a `data/wallets.json` o `candidatos.json`**.
+- Ningún módulo (Urna Web, Dashboard de Votos ni Auditoría) requiere modificar una sola línea de código Python, JavaScript o HTML.
+
+---
+
+## 🔒 Archivos Sensibles a Proteger (No Subir al Repositorio)
+
+Por motivos de seguridad criptográfica, las claves privadas y las bases de datos locales **NUNCA deben subirse a repositorios públicos de Git**. El archivo `.gitignore` protege automáticamente:
+
+| Archivo / Directorio | Descripción / Razón de Protección |
+|----------------------|-----------------------------------|
+| `data/wallets.json` | Contiene las **Invoice Keys** e IDs reales de todas las wallets de candidatos y mesas. |
+| `mesa_code/data_mesa/mesa_config.json` | Contiene la **Admin Key** de la wallet de la Mesa Electoral (permiso de pago). |
+| `mesa_code/data_mesa/candidatos.json` | Contiene las Invoice Keys reales de las wallets de candidatos. |
+| `.env`, `*.env` | Variables de entorno privadas. |
+| `data/database.sqlite3` | Base de datos SQLite interna de la instancia LNbits. |
+| `mesa_code/data_mesa/votos_local.db` | Base de datos SQLite local de la Mesa Electoral. |
+| `logs/`, `*.log` | Archivos de registros del sistema. |
+
+> [!CAUTION]
+> Asegúrate de utilizar únicamente archivos de plantilla como `wallets.example.json` para publicar en repositorios de Git.
+
+---
+
+## 🏗️ Arquitectura General del Sistema
+
+```
+                                  ┌──────────────────────────────────────────┐
+                                  │    Urna Electoral Web (Puerto 2007)      │
+                                  │      [mesa_code/app_web_mesa.py]         │
+                                  └────────────────────┬─────────────────────┘
+                                                       │ 
+                                                       │ Transacción Lightning por Tor (Sats + Memo Cifrado)
+                                                       ▼
+┌──────────────────────────────────────────┐       ┌──────────────────────────────────────────┐
+│   Dashboard Interactivo de Auditoría    │◄──────┤        Nodo LNbits (Red Tor .onion)      │
+│   (Puerto 7070)                          │       └────────────────────┬─────────────────────┘
+│   [audit/auditoria_ln_votos.py]          │                            │
+└──────────────────────────────────────────┘                            │ Monitoreo Read-Only (Invoice Keys)
+                                                                        ▼
+                                                  ┌──────────────────────────────────────────┐
+                                                  │       Dashboard Web (Puerto 5050)        │
+                                                  │      [frontend/votos_dashboard.py]       │
+                                                  └──────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Guía de Inicio Rápido e Implementación
+
+### 1. Requisitos Previos
+- Python 3.8+
+- Servicio proxy Tor activo en local (`127.0.0.1:9050`) si utilizas nodos LNbits `.onion`.
+- Instancia LNbits accesible.
+
+### 2. Instalación
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd sistema-votacion-btcol
+bash setup.sh
+```
+
+### 3. Configuración de Credenciales LNbits
+
+#### A. Configurar Wallets Globales (`data/wallets.json`)
+Copia la plantilla `wallets.example.json` a `data/wallets.json` e ingresa las **Invoice Keys** (solo lectura) de tus wallets:
+```bash
+cp wallets.example.json data/wallets.json
+nano data/wallets.json
+```
+
+#### B. Configurar la Urna de Mesa (`mesa_code/data_mesa/mesa_config.json`)
+Configura la **Admin Key** de la wallet asignada a la mesa (necesaria para que la mesa realice los pagos de los votos):
+```bash
+nano mesa_code/data_mesa/mesa_config.json
+```
+
+---
+
+### 4. Ejecución de Componentes
+
+#### 🖥️ A. Urna Electoral Web de Mesa (Puerto 2007)
+```bash
+python mesa_code/app_web_mesa.py
+```
+*Acceso en navegador:* `http://localhost:2007`
+
+#### 🌐 B. Dashboard Web de Monitoreo en Tiempo Real (Puerto 5050)
+```bash
+python frontend/votos_dashboard.py
+```
+*Acceso en navegador:* `http://localhost:5050`
+
+#### ⚖️ C. Dashboard Interactivo de Auditoría Electoral (Puerto 7070)
+```bash
+python audit/auditoria_ln_votos.py
+```
+*Acceso en navegador:* `http://localhost:7070`
+
+---
+
+## 📄 Licencia
+
+Software libre y de código abierto. Desarrollado para la comunidad de **Bitcoin Lightning Network**.
