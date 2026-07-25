@@ -18,6 +18,10 @@ mesa_code/data_mesa/candidatos.json
 *.db
 data/database.sqlite3
 mesa_code/data_mesa/votos_local.db
+*.enc
+capturas_cedula/
+desencriptadas/
+
 
 # ============================================================================
 # LOGS Y CACHES DE PYTHON

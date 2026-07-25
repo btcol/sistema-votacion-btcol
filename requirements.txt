@@ -2,3 +2,9 @@ Flask==3.0.0
 Flask-CORS==4.0.0
 requests==2.31.0
 python-dotenv==1.0.0
+opencv-python>=4.8.0
+pyzbar>=0.1.9
+zxing-cpp>=2.1.0
+pdf417decoder>=1.0.8
+
+
