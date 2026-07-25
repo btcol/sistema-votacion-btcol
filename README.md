@@ -152,6 +152,23 @@ python audit/auditoria_ln_votos.py
 ```
 *Acceso en navegador:* `http://localhost:7070`
 
+#### 🔓 D. Desencriptación en Lote de Cédulas Capturadas
+Si has capturado fotos de cédulas durante la votación web, puedes desencriptar todas las fotos del lote de forma automática sin ingresar contraseñas, ya que el sistema utiliza automáticamente el hash de cada factura como su clave.
+```bash
+./desencriptador/desencriptar_lote.sh
+```
+Las imágenes desencriptadas se almacenarán en `desencriptador/cedulas_desencriptadas/`.
+
+---
+
+### 5. ¿Cómo usar la captura de cédulas web?
+1. Abre la Urna Electoral Web (`http://localhost:2007`).
+2. Haz clic sobre la tarjeta de un candidato.
+3. Se abrirá la cámara del navegador. Centra el documento de identidad en el recuadro amarillo.
+4. Presiona la **Barra Espaciadora** o haz clic en el botón de la cámara para tomar la foto.
+5. Confirma el voto. El sistema cifrará automáticamente la imagen, guardará el archivo `.enc` usando el Hash LNbits de la transacción como nombre y te mostrará un ticket de comprobante rediseñado con código QR.
+6. Todos los archivos cifrados quedan guardados de forma segura en `mesa_code/impresora/capturas_cedula/`.
+
 ---
 
 ## 📄 Licencia
