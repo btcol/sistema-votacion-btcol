@@ -21,6 +21,8 @@ mesa_code/data_mesa/votos_local.db
 *.enc
 capturas_cedula/
 desencriptadas/
+comprobantes_emitidos/
+
 
 
 # ============================================================================
