@@ -1,10 +1,28 @@
-Flask==3.0.0
-Flask-CORS==4.0.0
-requests==2.31.0
-python-dotenv==1.0.0
+# ============================================================================
+# SISTEMA DE VOTACIÓN ELECTRÓNICA BTCOL (LNbits + Tor + Mesa Electoral)
+# Dependencias para Entorno Virtual (venv) en Linux / macOS / Raspberry Pi OS
+# ============================================================================
+
+# 🌐 1. Framework Web y Servicios API (Urna, Dashboard Votos, Auditoría)
+Flask>=3.0.0
+Flask-CORS>=4.0.0
+requests[socks]>=2.31.0
+PySocks>=1.7.1
+python-dotenv>=1.0.0
+
+# 📸 2. Visión Computacional, Cámara y Captura de Cédula
 opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# 🔐 3. Criptografía y Seguridad Simétrica (Cifrado AES-256 de Cédulas)
+cryptography>=41.0.0
+
+# 🖨️ 4. Impresora Térmica ESC/POS, Códigos QR y Comprobantes
+python-escpos>=3.0
+qrcode>=7.4.2
+
+# 🔍 5. Motores de Lectura de Códigos de Barras / PDF417
+pdf417decoder>=1.0.8
 pyzbar>=0.1.9
 zxing-cpp>=2.1.0
-pdf417decoder>=1.0.8
-
-
