@@ -29,11 +29,21 @@ def calcular_checksum_sha256(ruta_archivo: str) -> str:
     return sha256_hash.hexdigest()
 
 
-def desencriptar_lote_cedulas(clave_secreta: str, dir_entrada: str, dir_salida: str) -> dict:
+def desencriptar_lote_cedulas(clave_secreta: str = "AUTO", dir_entrada: str = None, dir_salida: str = None) -> dict:
     """
     Obtiene la lista de todos los archivos .enc en 'dir_entrada',
     los desencripta uno a uno y guarda las imágenes restauradas en 'dir_salida'.
+    Si 'clave_secreta' es 'AUTO' o None, usa el hash de la factura LNbits
+    (extraído del nombre del archivo <payment_hash>.enc) como clave simétrica individual.
     """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(script_dir)
+
+    if not dir_entrada:
+        dir_entrada = os.path.join(root_dir, "mesa_code", "impresora", "capturas_cedula")
+    if not dir_salida:
+        dir_salida = os.path.join(script_dir, "cedulas_desencriptadas")
+
     if not os.path.exists(dir_entrada):
         print(f"❌ Error: El directorio de entrada '{dir_entrada}' no existe.")
         return {"total": 0, "exitosos": 0, "fallidos": 0}
@@ -53,13 +63,18 @@ def desencriptar_lote_cedulas(clave_secreta: str, dir_entrada: str, dir_salida: 
 
     os.makedirs(dir_salida, exist_ok=True)
 
+    usar_modo_auto = (not clave_secreta or clave_secreta.upper() == "AUTO")
+
     print("\n" + "=" * 70)
     print("🔓 DESENCRIPTACIÓN EN LOTE DE CÉDULAS DE ELECTORES BTCOL")
     print("=" * 70)
     print(f"📂 Directorio Origen:   {dir_entrada}")
     print(f"📁 Directorio Destino:  {dir_salida}")
     print(f"📦 Total Archivos .enc: {len(archivos_enc)}")
-    print(f"🔑 Clave configurada:   {'*' * len(clave_secreta)}")
+    if usar_modo_auto:
+        print(f"🔑 Modo de Clave:      AUTOMÁTICO (Clave = Hash LNbits / ID del archivo .enc)")
+    else:
+        print(f"🔑 Modo de Clave:      MANUAL ({'*' * len(clave_secreta)})")
     print("=" * 70 + "\n")
 
     exitosos = 0
@@ -72,8 +87,12 @@ def desencriptar_lote_cedulas(clave_secreta: str, dir_entrada: str, dir_salida: 
         memo_hash_id = os.path.splitext(nombre_enc)[0]
         checksum_actual = calcular_checksum_sha256(ruta_enc)
 
+        # Determinar clave individual
+        clave_efectiva = memo_hash_id if usar_modo_auto else clave_secreta
+
         print(f"[{idx}/{len(archivos_enc)}] 📦 Procesando: {nombre_enc}")
-        print(f"       🔑 Checksum SHA-256: {checksum_actual[:32]}...")
+        print(f"       🔑 Clave utilizada (Hash LNbits): {clave_efectiva[:32]}...")
+        print(f"       🛡️ Checksum SHA-256 archivo .enc: {checksum_actual[:32]}...")
 
         # Nombre para la imagen restaurada individual
         nombre_salida = f"restaurada_{memo_hash_id}.jpg"
@@ -82,7 +101,7 @@ def desencriptar_lote_cedulas(clave_secreta: str, dir_entrada: str, dir_salida: 
         # Llamar al desencriptador individual
         ruta_restaurada, metadatos = desencriptar_imagen(
             ruta_encriptada=ruta_enc,
-            clave_secreta=clave_secreta,
+            clave_secreta=clave_efectiva,
             ruta_salida=ruta_salida_img,
             silencioso=True
         )
@@ -133,7 +152,6 @@ def desencriptar_lote_cedulas(clave_secreta: str, dir_entrada: str, dir_salida: 
 
 
 def main():
-    # Determinar rutas por defecto
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
     default_dir_entrada = os.path.join(root_dir, "mesa_code", "impresora", "capturas_cedula")
@@ -143,8 +161,8 @@ def main():
         description="Script para desencriptar en lote todas las cédulas .enc una a una."
     )
     parser.add_argument(
-        "-k", "--key", type=str, required=True,
-        help="Clave secreta simétrica para desencriptar todas las cédulas"
+        "-k", "--key", type=str, default="AUTO",
+        help="Clave simétrica para desencriptar (por defecto: AUTO, resuelve automáticamente la clave desde el Hash LNbits de cada archivo)"
     )
     parser.add_argument(
         "-d", "--dir", type=str, default=default_dir_entrada,
@@ -162,6 +180,7 @@ def main():
         dir_entrada=args.dir,
         dir_salida=args.outdir
     )
+
 
 
 if __name__ == "__main__":
