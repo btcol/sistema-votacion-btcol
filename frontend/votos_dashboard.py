@@ -878,13 +878,21 @@ def index():
 @app.route("/api/candidato_foto/<candidato_id>")
 def obtener_foto_candidato_dashboard(candidato_id):
     """Retorna la foto del candidato según su ID o avatar_placeholder.svg"""
-    foto_paths = [
+    foto_paths = []
+    
+    # Intentar resolver desde foto_local configurado en wallets.json
+    candidato = monitor.candidatos_wallets.get(candidato_id)
+    if candidato and candidato.get("foto_local"):
+        foto_paths.append(BASE_DIR / "mesa_code" / "data_mesa" / candidato["foto_local"])
+        foto_paths.append(BASE_DIR / "mesa_code" / candidato["foto_local"])
+
+    foto_paths.extend([
         BASE_DIR / "mesa_code" / "data_mesa" / "fotos" / f"{candidato_id}.png",
         BASE_DIR / "mesa_code" / "data_mesa" / "fotos" / f"{candidato_id}.jpg",
         BASE_DIR / "mesa_code" / "data_mesa" / "fotos" / f"{candidato_id}.jpeg",
         BASE_DIR / "data_mesa" / "fotos" / f"{candidato_id}.png",
         BASE_DIR / "mesa_code" / "web" / "templates" / "avatar_placeholder.svg"
-    ]
+    ])
     for p in foto_paths:
         if p and p.exists():
             return send_file(p)
