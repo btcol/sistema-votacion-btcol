@@ -201,13 +201,11 @@ class MotorAuditoriaElectoral:
             cursor = conn.cursor()
             
             # Consultar apipayments
-            cursor.execute("SELECT wallet_id, amount, memo, payment_hash, time, pending FROM apipayments ORDER BY time DESC")
+            cursor.execute("SELECT wallet_id, amount, memo, payment_hash, time FROM apipayments ORDER BY time DESC")
             rows = cursor.fetchall()
             conn.close()
 
             for row in rows:
-                if row["pending"]:
-                    continue
                 
                 wid = row["wallet_id"]
                 amount_msat = row["amount"]
