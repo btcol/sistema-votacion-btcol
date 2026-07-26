@@ -72,7 +72,6 @@ Por motivos de seguridad criptográfica, las claves privadas y las bases de dato
 | `data/wallets.json` | Contiene las **Invoice Keys** e IDs reales de todas las wallets de candidatos y mesas. |
 | `mesa_code/data_mesa/mesa_config.json` | Contiene la **Admin Key** de la wallet de la Mesa Electoral (permiso de pago). |
 | `mesa_code/data_mesa/candidatos.json` | Contiene las Invoice Keys reales de las wallets de candidatos. |
-| `.env`, `*.env` | Variables de entorno privadas. |
 | `data/database.sqlite3` | Base de datos SQLite interna de la instancia LNbits. |
 | `mesa_code/data_mesa/votos_local.db` | Base de datos SQLite local de la Mesa Electoral. |
 | `logs/`, `*.log` | Archivos de registros del sistema. |
