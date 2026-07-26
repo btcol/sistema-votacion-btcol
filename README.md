@@ -10,9 +10,6 @@ Incluye una **Urna Electoral BTCOL**, un **Dashboard de Monitoreo BTCOL en Tiemp
 
 ## 📸 Capturas de Pantalla de la Plataforma
 
-> [!NOTE]
-> *Reemplazar las rutas de las imágenes en `docs/assets/` con las capturas de pantalla del despliegue real.*
-
 ### 1. Urna Electoral BTCOL (Puerto 2007)
 ![Urna Electoral BTCOL](docs/assets/urna_web_screenshot.png)
 
