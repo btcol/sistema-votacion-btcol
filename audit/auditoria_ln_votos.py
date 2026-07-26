@@ -325,9 +325,8 @@ class MotorAuditoriaElectoral:
         if not mesas_p and not candidatos_p:
             mesas_p, candidatos_p = self.extraer_pagos_sqlite()
 
-        # Mapear pagos de mesas por payment_hash y por memo
+        # Mapear pagos de mesas por payment_hash
         mesa_by_hash = {p["payment_hash"]: p for p in mesas_p if p["payment_hash"]}
-        mesa_by_memo = {p["memo"]: p for p in mesas_p if p["memo"]}
 
         registros_auditados: List[RegistroAuditVoto] = []
         candidato_totales = {c_id: {"autorizados": 0, "irregulares": 0, "sats_autorizados": 0, "sats_irregulares": 0} for c_id in self.authorized_candidato_ids}
@@ -348,8 +347,8 @@ class MotorAuditoriaElectoral:
             # Nombre de candidato
             cand_name = self.id_to_name.get(cand_id, f"Wallet {cand_id[:8]}")
 
-            # Buscar coincidencia en pagos de Mesas Autorizadas
-            match_mesa = mesa_by_hash.get(hash_val) or mesa_by_memo.get(memo_val)
+            # Buscar coincidencia en pagos de Mesas Autorizadas (Únicamente por Hash Criptográfico)
+            match_mesa = mesa_by_hash.get(hash_val)
 
             if match_mesa:
                 mesa_id = match_mesa["wallet_id"]
