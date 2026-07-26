@@ -23,7 +23,7 @@ import requests
 BASE_DIR = Path(__file__).resolve().parent.parent  # frontend/ -> raíz
 DATA_DIR = BASE_DIR / "data"
 
-sys.path.append(str(BASE_DIR / "mesa_code"))
+sys.path.insert(0, str(BASE_DIR / "mesa_code"))
 from scripts.monitor_ws import MonitorWebSocket
 
 # Archivo de configuración unificado de wallets y settings
