@@ -1172,7 +1172,7 @@ HTML_AUDIT_TEMPLATE = """
 
     // Inicializar y refrescar cada 10 segundos
     loadAuditData();
-    setInterval(loadAuditData, 10000);
+    setInterval(loadAuditData, 30000);
   </script>
 </body>
 </html>

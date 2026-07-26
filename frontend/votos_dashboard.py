@@ -859,7 +859,7 @@ HTML_TEMPLATE = """
 
     // Inicializar y refrescar cada 5 segundos
     loadWalletStatus();
-    setInterval(loadWalletStatus, 5000);
+    setInterval(loadWalletStatus, 20000);
   </script>
 </body>
 </html>
