@@ -180,7 +180,16 @@ class MotorAuditoriaElectoral:
         self.authorized_mesa_ids: Set[str] = set(self.mesas.keys())
         self.authorized_candidato_ids: Set[str] = set(self.candidatos.keys())
         
-        # Mapeo de wallet_id / ID -> Display Name
+        # Mapeo de wallet_id (UUID) a ID lógico (ej. f0cd... -> mesa1)
+        self.uuid_to_id: Dict[str, str] = {}
+        for c_id, info in self.candidatos.items():
+            u = info.get("wallet_id")
+            if u: self.uuid_to_id[u] = c_id
+        for m_id, info in self.mesas.items():
+            u = info.get("wallet_id")
+            if u: self.uuid_to_id[u] = m_id
+        
+        # Mapeo de ID -> Display Name
         self.id_to_name: Dict[str, str] = {}
         for wid, info in self.candidatos.items():
             self.id_to_name[wid] = info.get("display_name", wid)
@@ -207,7 +216,10 @@ class MotorAuditoriaElectoral:
 
             for row in rows:
                 
-                wid = row["wallet_id"]
+                wid_raw = row["wallet_id"]
+                # Convertir UUID crudo a nuestro ID lógico (mesa1, candidato1)
+                wid = self.uuid_to_id.get(wid_raw, wid_raw)
+                
                 amount_msat = row["amount"]
                 amount_sats = abs(amount_msat) // 1000 if amount_msat else 0
                 time_val = row["time"]
@@ -260,7 +272,7 @@ class MotorAuditoriaElectoral:
             if not inv_key:
                 continue
             client = LNBitsAuditClient(LNBITS_ENDPOINT, inv_key)
-            raw_payments = client.get_payments(limit=100)
+            raw_payments = client.get_payments(limit=5000)
             for p in raw_payments:
                 if p.get("pending"):
                     continue
@@ -289,7 +301,7 @@ class MotorAuditoriaElectoral:
             if not inv_key:
                 continue
             client = LNBitsAuditClient(LNBITS_ENDPOINT, inv_key)
-            raw_payments = client.get_payments(limit=100)
+            raw_payments = client.get_payments(limit=5000)
             for p in raw_payments:
                 if p.get("pending"):
                     continue
