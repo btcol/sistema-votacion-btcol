@@ -335,15 +335,10 @@ class MotorAuditoriaElectoral:
         Ejecuta la reconciliación y clasificación criptográfica de transacciones.
         Identifica votos Válidos Autorizados e Irregulares de Mesas No Autorizadas.
         """
-        # Extraer datos de API y/o SQLite
-        if DATABASE_FILE.exists():
-            # Prioridad absoluta a SQLite local (Cero Tor, ultra rápido, cero fallas parciales)
-            mesas_p, candidatos_p = self.extraer_pagos_sqlite()
-        else:
-            api_res = self.extraer_pagos_api()
-            if api_res == (None, None):
-                raise ValueError("Falla parcial de red Tor al consultar LNbits. Abortando reconciliación para evitar marcar votos irregulares falsos.")
-            mesas_p, candidatos_p = api_res
+        api_res = self.extraer_pagos_api()
+        if api_res == (None, None):
+            raise ValueError("Falla parcial de red Tor al consultar LNbits. Abortando reconciliación para evitar marcar votos irregulares falsos.")
+        mesas_p, candidatos_p = api_res
 
         # Mapear pagos de mesas por payment_hash
         mesa_by_hash = {p["payment_hash"]: p for p in mesas_p if p["payment_hash"]}
