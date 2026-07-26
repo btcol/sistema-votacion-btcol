@@ -1,26 +1,26 @@
 # 🗳️ Resumen Ejecutivo - Sistema de Votación BTCOL (LNbits)
 
-**Sistema integral para votaciones electrónicas seguras, transparentes y auditables basado en la red Bitcoin Lightning Network.**
+**Plataforma de alta disponibilidad para votaciones electrónicas seguras, transparentes y auditables apoyadas sobre Bitcoin Lightning Network.**
 
-Este proyecto plantea una solución disruptiva a las elecciones tradicionales: reemplazar las papeletas de papel y urnas físicas por **transacciones de satoshis (fracciones de Bitcoin) sobre la red Lightning (LNbits)** y añadir una fuerte capa de validación de identidad in situ con criptografía simétrica para evitar fraudes, coacciones o falsificaciones.
+Este proyecto plantea un paradigma disruptivo en los modelos de elecciones y comicios modernos: la sustitución de papeletas y urnas analógicas por **transacciones de satoshis sobre la red Lightning (implementación LNbits)**, aunada a un estricto mecanismo biométrico de validación de identidad cifrada con protección *Zero Knowledge* para evadir fraudes y coacciones.
 
-## 🎯 ¿Cómo Funciona la Experiencia de Votación?
+## 🎯 Experiencia de Votación y Funcionamiento
 
-1. **Interacción Natural**: El elector se acerca a la "Urna Web" (una pantalla táctil corriendo en una tablet o computadora).
-2. **Selección**: Toca la tarjeta con la foto de su candidato preferido.
-3. **Captura de Identidad Inalterable**: La pantalla activa instantáneamente la cámara web. El elector muestra su Documento de Identidad o Cédula. El sistema toma una fotografía en alta resolución.
-4. **Cifrado Automático (Zero Knowledge)**: Para garantizar la privacidad, la foto *no* se guarda visible en texto plano. Se genera un pago a la wallet del candidato en la red Lightning. La red arroja un comprobante criptográfico único (Hash de Pago). El sistema toma ese hash y lo usa como **clave maestra simétrica** para encriptar la foto en milisegundos. Solo quien conozca el hash exacto del voto podrá desbloquear la foto.
-5. **Comprobante Físico**: Se emite automáticamente un ticket por impresora térmica que contiene la fecha, hora, el nombre del candidato, el Hash de la transacción y un **código QR con el Checksum SHA-256** del archivo encriptado para que el elector o los auditores certifiquen que la foto no fue adulterada a posteriori.
+1. **Interacción del Elector**: El ciudadano opera una "Urna Web" (una terminal táctil, tableta o computadora en el centro de votación).
+2. **Selección**: Interactúa con la tarjeta y fotografía del candidato de su preferencia.
+3. **Validación de Identidad Inalterable**: El dispositivo inicia un canal WebRTC local. El elector presenta su documento nacional de identidad a la cámara web. El sistema ejecuta una captura fotográfica en alta resolución del mismo.
+4. **Cifrado Automático (Zero Knowledge)**: Para asegurar el anonimato absoluto, el archivo fotográfico **no** se almacena en su forma binaria original (texto plano). En su lugar, el sistema transacciona un pago a la billetera (wallet) del candidato seleccionado a través de la red Lightning. Una vez finalizada la confirmación de la red, ésta emite una huella criptográfica de confirmación (`payment_hash`). El algoritmo de la plataforma intercepta este hash y lo emplea como **clave maestra simétrica** para encriptar la biometría del elector en mili-segundos. Con esto, únicamente las entidades en posesión del listado de firmas hash de la elección podrán acceder a los datos.
+5. **Comprobante Físico Auditado**: La urna imprime o despliega un recibo electoral que detalla: la fecha, hora, candidato seleccionado, el Hash de transacción, y un **código QR que codifica el checksum matemático SHA-256** del archivo encriptado. Dicho esquema blinda legal y logísticamente cualquier posibilidad de inyección o adulteración posterior de la información.
 
-## 🛡️ Pilares de Seguridad y Transparencia
+## 🛡️ Estándares de Seguridad y Transparencia
 
-- **Red Anónima Tor (.onion)**: Toda la comunicación de votos (pagos Lightning) entre la Mesa y el nodo central pasa a través de la red Tor. Esto anonimiza el origen geográfico de los votos, protegiendo a los centros de votación contra censura o ataques dirigidos (DDoS).
-- **Límite de Capacidad Inmanipulable**: No existen "archivos Excel" manipulables que digan cuántos votos puede emitir una mesa. El límite se calcula matemáticamente por la cantidad real de Satoshis en la wallet matriz de la mesa. Si la mesa se queda sin fondos, la pantalla se bloquea físicamente impidiendo cargar más votos de forma fraudulenta.
-- **Auditoría 100% Matemática**: Al cruzar el reporte de los hashes en la blockchain Lightning contra el total de archivos `.enc` capturados, cualquier discrepancia salta a la luz. El módulo de Auditoría en Tiempo Real detecta automáticamente los "Votos Irregulares" (es decir, fondos o votos que hayan llegado a un candidato sin provenir de una mesa autorizada).
+- **Red Anónima Tor (.onion)**: El tránsito completo de los votos (transacciones LN) se canaliza desde las mesas físicas hacia el servidor central a través de proxies Tor. Este mecanismo previene por completo ataques dirigidos tipo DDoS y bloquea cualquier intento de censura por parte de ISP's o entidades estatales hostiles.
+- **Autorizaciones Limitadas Inmanipulables**: Ninguna mesa maneja un umbral de votantes configurado en texto estático. El límite operativo para los votos se determina dinámicamente según el saldo remanente (en satoshis) albergado en la `wallet` matriz de cada mesa electoral. Al agotarse dichos fondos, la terminal se bloqueará impidiendo técnicamente el registro de más votos.
+- **Auditoría Matemática en Tiempo Real**: Toda discrepancia entre la traza blockchain de LNbits y los datos resguardados físicamente por la mesa activan alarmas dentro del módulo de Auditoría Electoral. El sistema detecta inmediatamente anomalías, incluyendo depósitos o inyecciones irregulares hacia las billeteras de los candidatos desde fuentes externas.
 
-## 🚀 Módulos del Sistema
+## 🚀 Arquitectura de Módulos Centrales
 
-1. **Urna Electoral Web (Puerto 2007)**: La pantalla táctil del votante con captura de cámara en vivo y emisión de pago LNbits.
-2. **Dashboard de Monitoreo (Puerto 5050)**: Pantalla gigante para ver el escrutinio de los candidatos actualizarse en vivo en el centro de campaña.
-3. **Dashboard de Auditoría (Puerto 7070)**: Consola para fiscales electorales que detecta transacciones irregulares y valida los hashes criptográficos.
-4. **Módulo Desencriptador Automático**: Herramienta de auditoría post-elección que lee automáticamente los hashes LNbits y desencripta miles de fotos de cédulas en segundos para verificar la validez humana de cada voto emitido.
+1. **Urna Electoral Web (Puerto 2007)**: Interfaz del centro de votación para la captura fotográfica del elector y desencadenante de pagos a Lightning.
+2. **Dashboard de Monitoreo Analítico (Puerto 5050)**: Servidor apoyado en *WebSockets* y almacenamiento RAM para proyectar el escrutinio oficial con tasas de recarga sub-milisegundo, mitigando de raíz el impacto de latencia característico de la red Tor.
+3. **Dashboard de Auditoría Escrutadora (Puerto 7070)**: Consola de control e inteligencia para fiscales electorales responsables de detectar transacciones malformadas y confirmar cruces de hashes SHA-256.
+4. **Módulo Desencriptador Offline Automático**: Suite criptográfica de pos-elección capaz de iterar sobre los logs generados y descifrar volúmenes de documentos de identidad, certificando matemáticamente la veracidad humana por detrás de cada transacción Lightning aprobada.
