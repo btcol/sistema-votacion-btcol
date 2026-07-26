@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import time
+import threading
 from typing import Dict, List, Optional
 
 import sys
@@ -251,6 +252,25 @@ class WalletMonitor:
         self.ws_monitors: Dict[str, MonitorWebSocket] = {}
         self.vote_converter = VoteConverter(SATS_PER_VOTE)
         self._init_clients()
+        self._start_background_sync()
+
+    def _start_background_sync(self):
+        """
+        Inicia un hilo en segundo plano que fuerza la actualización de todas las wallets
+        cada 15 segundos. Esto es necesario porque:
+        1. LNbits no envía eventos WS para pagos salientes (así que las mesas no se actualizan solas).
+        2. Sirve de fallback robusto por si la conexión WS de algún candidato se retrasa o cae.
+        """
+        def _sync_loop():
+            while True:
+                time.sleep(15)
+                for name, monitor in self.ws_monitors.items():
+                    try:
+                        monitor.forzar_actualizacion_saldo()
+                    except Exception as e:
+                        print(f"Error forzando actualización de {name}: {e}")
+
+        threading.Thread(target=_sync_loop, daemon=True, name="DashboardSync").start()
 
     def _init_clients(self):
         for wallet_type in ["candidatos", "mesas"]:
