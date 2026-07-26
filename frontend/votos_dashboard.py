@@ -881,7 +881,7 @@ def obtener_foto_candidato_dashboard(candidato_id):
     foto_paths = []
     
     # Intentar resolver desde foto_local configurado en wallets.json
-    candidato = monitor.candidatos_wallets.get(candidato_id)
+    candidato = monitor.wallets_config["candidatos"].get(candidato_id)
     if candidato and candidato.get("foto_local"):
         foto_paths.append(BASE_DIR / "mesa_code" / "data_mesa" / candidato["foto_local"])
         foto_paths.append(BASE_DIR / "mesa_code" / candidato["foto_local"])
