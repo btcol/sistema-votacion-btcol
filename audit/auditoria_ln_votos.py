@@ -268,6 +268,8 @@ class MotorAuditoriaElectoral:
                     continue
                 # Pagos salientes (outbound)
                 amount_msat = p.get("amount", 0)
+                if amount_msat >= 0:
+                    continue  # Ignorar pagos entrantes a la mesa (ej. recargas)
                 try:
                     amount_sats = abs(int(amount_msat)) // 1000 if amount_msat else 0
                 except (ValueError, TypeError):
@@ -294,6 +296,8 @@ class MotorAuditoriaElectoral:
                 if p.get("pending"):
                     continue
                 amount_msat = p.get("amount", 0)
+                if amount_msat <= 0:
+                    continue  # Ignorar pagos salientes (ej. retiro de liquidez)
                 try:
                     amount_sats = abs(int(amount_msat)) // 1000 if amount_msat else 0
                 except (ValueError, TypeError):
