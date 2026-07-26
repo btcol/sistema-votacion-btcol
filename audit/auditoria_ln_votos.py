@@ -127,7 +127,7 @@ class LNBitsAuditClient:
             }
         return None
 
-    def get_payments(self, limit: int = 100) -> List[Dict]:
+    def get_payments(self, limit: int = 5000) -> Optional[List[Dict]]:
         url = f"{self.endpoint}/api/v1/payments?limit={limit}"
         headers = {"X-Api-Key": self.invoice_key, "Content-Type": "application/json"}
         proxies = self._get_proxies(url)
@@ -138,7 +138,7 @@ class LNBitsAuditClient:
                 return res.json()
         except Exception:
             pass
-        return []
+        return None
 
 
 # ============================================================================
@@ -261,8 +261,8 @@ class MotorAuditoriaElectoral:
             pass
         return ""
 
-    def extraer_pagos_api(self) -> Tuple[List[Dict], List[Dict]]:
-        """Extrae pagos de LNbits en tiempo real vía API Tor"""
+    def extraer_pagos_api(self) -> Tuple[Optional[List[Dict]], Optional[List[Dict]]]:
+        """Extrae pagos de LNbits en tiempo real vía API Tor. Retorna (None, None) si ocurre una falla parcial."""
         mesas_payments = []
         candidatos_payments = []
 
@@ -273,6 +273,9 @@ class MotorAuditoriaElectoral:
                 continue
             client = LNBitsAuditClient(LNBITS_ENDPOINT, inv_key)
             raw_payments = client.get_payments(limit=5000)
+            if raw_payments is None:
+                return None, None  # Falla parcial, abortar
+            
             for p in raw_payments:
                 if p.get("pending"):
                     continue
@@ -302,6 +305,8 @@ class MotorAuditoriaElectoral:
                 continue
             client = LNBitsAuditClient(LNBITS_ENDPOINT, inv_key)
             raw_payments = client.get_payments(limit=5000)
+            if raw_payments is None:
+                return None, None
             for p in raw_payments:
                 if p.get("pending"):
                     continue
@@ -331,9 +336,14 @@ class MotorAuditoriaElectoral:
         Identifica votos Válidos Autorizados e Irregulares de Mesas No Autorizadas.
         """
         # Extraer datos de API y/o SQLite
-        mesas_p, candidatos_p = self.extraer_pagos_api()
-        if not mesas_p and not candidatos_p:
+        if DATABASE_FILE.exists():
+            # Prioridad absoluta a SQLite local (Cero Tor, ultra rápido, cero fallas parciales)
             mesas_p, candidatos_p = self.extraer_pagos_sqlite()
+        else:
+            api_res = self.extraer_pagos_api()
+            if api_res == (None, None):
+                raise ValueError("Falla parcial de red Tor al consultar LNbits. Abortando reconciliación para evitar marcar votos irregulares falsos.")
+            mesas_p, candidatos_p = api_res
 
         # Mapear pagos de mesas por payment_hash
         mesa_by_hash = {p["payment_hash"]: p for p in mesas_p if p["payment_hash"]}
@@ -1212,14 +1222,41 @@ def obtener_foto_candidato_audit(candidato_id):
     return "", 404
 
 
+import threading
+
+class AuditCacheManager:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.last_data = None
+        self.last_error = None
+        
+    def sync_loop(self):
+        while True:
+            try:
+                data = motor_auditoria.ejecutar_auditoria()
+                with self.lock:
+                    self.last_data = data
+                    self.last_error = None
+            except Exception as e:
+                with self.lock:
+                    self.last_error = str(e)
+            time.sleep(15)  # Sincronización pasiva cada 15s
+
+audit_cache = AuditCacheManager()
+
+
 @app.route("/api/audit/ejecutar")
 def api_ejecutar_auditoria():
-    try:
-        data = motor_auditoria.ejecutar_auditoria()
+    with audit_cache.lock:
+        data = audit_cache.last_data
+        error = audit_cache.last_error
+        
+    if data is not None:
         return jsonify(data)
-    except Exception as e:
-        print(f"Error en /api/audit/ejecutar: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+    elif error:
+        return jsonify({"success": False, "error": error}), 500
+    else:
+        return jsonify({"success": False, "error": "Iniciando motor de auditoría, por favor espere unos segundos..."}), 503
 
 
 # ============================================================================
@@ -1250,6 +1287,10 @@ if __name__ == "__main__":
     print("")
     print("🚀 Dashboard Interactivo disponible en: http://localhost:7070")
     print("")
+
+    # Arrancar hilo de sincronización en segundo plano (RAM Cache)
+    sync_thread = threading.Thread(target=audit_cache.sync_loop, daemon=True)
+    sync_thread.start()
 
     debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
     app.run(host="0.0.0.0", port=7070, debug=debug)
