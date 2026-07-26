@@ -14,6 +14,7 @@ from pathlib import Path
 import time
 from typing import Dict, List, Optional
 
+import sys
 from flask import Flask, render_template_string, jsonify, request, send_file
 from flask_cors import CORS
 import requests
@@ -21,6 +22,9 @@ import requests
 # Directorio raíz del proyecto (2 niveles arriba desde frontend/)
 BASE_DIR = Path(__file__).resolve().parent.parent  # frontend/ -> raíz
 DATA_DIR = BASE_DIR / "data"
+
+sys.path.append(str(BASE_DIR / "mesa_code"))
+from scripts.monitor_ws import MonitorWebSocket
 
 # Archivo de configuración unificado de wallets y settings
 WALLETS_CONFIG_FILE = DATA_DIR / "wallets.json"
@@ -244,7 +248,7 @@ class WalletMonitor:
             "mesas": wallets_config.get("mesas", {})
         }
         self.clients: Dict[str, LNBitsClient] = {}
-        self.last_known_status: Dict[str, WalletDetails] = {}
+        self.ws_monitors: Dict[str, MonitorWebSocket] = {}
         self.vote_converter = VoteConverter(SATS_PER_VOTE)
         self._init_clients()
 
@@ -254,11 +258,24 @@ class WalletMonitor:
                 continue
 
             for wallet_name, wallet_info in self.wallets_config[wallet_type].items():
-                invoice_key = wallet_info.get("invoice_key")
+                invoice_key = wallet_info.get("invoice_key") or wallet_info.get("api_key")
+                wallet_id = wallet_info.get("wallet_id") or wallet_info.get("id")
+                
                 if invoice_key:
+                    # Cliente HTTP para historial de pagos
                     self.clients[wallet_name] = LNBitsClient(
                         self.endpoint, invoice_key, timeout=REQUEST_TIMEOUT
                     )
+                
+                if invoice_key and wallet_id:
+                    # Monitor WebSocket en hilo de fondo (RAM + Cero Tor Requests en polling)
+                    monitor = MonitorWebSocket(
+                        endpoint=self.endpoint,
+                        wallet_id=wallet_id,
+                        admin_key=invoice_key, # Se usa como key para el request inicial
+                    )
+                    monitor.iniciar()
+                    self.ws_monitors[wallet_name] = monitor
 
     def _get_wallet_type(self, wallet_name: str) -> Optional[WalletType]:
         if wallet_name in self.wallets_config.get("candidatos", {}):
@@ -268,12 +285,10 @@ class WalletMonitor:
         return None
 
     def get_wallet_status(self, wallet_name: str) -> Optional[WalletDetails]:
-        if wallet_name not in self.clients:
+        if wallet_name not in self.ws_monitors:
             return None
 
-        client = self.clients[wallet_name]
         wallet_type = self._get_wallet_type(wallet_name)
-
         if wallet_type == WalletType.CANDIDATO:
             wallet_info = self.wallets_config["candidatos"].get(wallet_name, {})
         else:
@@ -282,69 +297,26 @@ class WalletMonitor:
         display_name = wallet_info.get("display_name", wallet_name)
         foto_url = f"/api/candidato_foto/{wallet_name}" if wallet_type == WalletType.CANDIDATO else None
 
-        try:
-            response = client.get_wallet_details()
+        # Lectura instantánea desde memoria RAM (Cero uso de Tor)
+        estado_ws = self.ws_monitors[wallet_name].obtener_estado()
+        balance = estado_ws.get("saldo_sats", 0)
+        lnbits_ok = estado_ws.get("lnbits_ok", False)
+        ultimo_evento = estado_ws.get("ultimo_evento") or datetime.now().isoformat()
+        
+        vote_info = self.vote_converter.convert(balance)
 
-            if response is None:
-                # Retornar el último estado exitoso conocido para evitar parpadeos a 0 votos
-                if wallet_name in self.last_known_status:
-                    last_status = self.last_known_status[wallet_name]
-                    last_status.is_available = False
-                    last_status.error_message = "Reconectando..."
-                    return last_status
-
-                return WalletDetails(
-                    name=wallet_name,
-                    display_name=display_name,
-                    wallet_type=wallet_type,
-                    balance=0,
-                    vote_info=self.vote_converter.convert(0),
-                    invoice_key=wallet_info.get("invoice_key", "")[:10] + "...",
-                    last_update=datetime.now().isoformat(),
-                    is_available=False,
-                    foto_url=foto_url,
-                    error_message="No response from API",
-                )
-
-            balance = response.get("balance", 0) // 1000  # msat a sats
-            vote_info = self.vote_converter.convert(balance)
-
-            status = WalletDetails(
-                name=wallet_name,
-                display_name=display_name,
-                wallet_type=wallet_type,
-                balance=balance,
-                vote_info=vote_info,
-                invoice_key=wallet_info.get("invoice_key", "")[:10] + "...",
-                last_update=datetime.now().isoformat(),
-                is_available=True,
-                foto_url=foto_url,
-                error_message=None,
-            )
-            # Guardar el último estado válido para mantener fijos los conteos ante fallas temporales
-            self.last_known_status[wallet_name] = status
-            return status
-
-        except Exception as e:
-            print(f"Error consultando wallet {wallet_name}: {e}")
-            if wallet_name in self.last_known_status:
-                last_status = self.last_known_status[wallet_name]
-                last_status.is_available = False
-                last_status.error_message = str(e)
-                return last_status
-
-            return WalletDetails(
-                name=wallet_name,
-                display_name=display_name,
-                wallet_type=wallet_type,
-                balance=0,
-                vote_info=self.vote_converter.convert(0),
-                invoice_key=wallet_info.get("invoice_key", "")[:10] + "...",
-                last_update=datetime.now().isoformat(),
-                is_available=False,
-                foto_url=foto_url,
-                error_message=str(e),
-            )
+        return WalletDetails(
+            name=wallet_name,
+            display_name=display_name,
+            wallet_type=wallet_type,
+            balance=balance,
+            vote_info=vote_info,
+            invoice_key=wallet_info.get("invoice_key", "")[:10] + "...",
+            last_update=ultimo_evento,
+            is_available=lnbits_ok,
+            foto_url=foto_url,
+            error_message=None if lnbits_ok else "Sincronizando...",
+        )
 
     def get_all_wallets_status(self) -> List[WalletDetails]:
         statuses = []
@@ -857,9 +829,11 @@ HTML_TEMPLATE = """
       });
     }
 
-    // Inicializar y refrescar cada 5 segundos
+    // Inicializar y refrescar cada 2 segundos
     loadWalletStatus();
-    setInterval(loadWalletStatus, 20000);
+    // El backend ahora sirve los datos desde RAM gracias a WebSockets.
+    // Coste de red: 0. Podemos consultar tan rápido como queramos.
+    setInterval(loadWalletStatus, 2000);
   </script>
 </body>
 </html>
