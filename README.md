@@ -16,8 +16,13 @@ Incluye una **Urna Electoral BTCOL**, un **Dashboard de Monitoreo BTCOL en Tiemp
 ### 1. Urna Electoral BTCOL (Puerto 2007)
 ![Urna Electoral BTCOL](docs/assets/urna_web_screenshot.png)
 
-### 2. Dashboard Web de Monitoreo en Tiempo Real (Puerto 5050)
-![Dashboard Principal de Votos](docs/assets/votos_dashboard_screenshot.png)
+### 2. Dashboards Web de Monitoreo en Tiempo Real (Puerto 5050)
+
+**Vista Principal: Escrutinio de Candidatos**
+![Dashboard Candidatos](docs/assets/votos_dashboard_candidatos.png)
+
+**Vista Secundaria: Estatus y Saldo de Mesas Electorales**
+![Dashboard Mesas](docs/assets/votos_dashboard_mesas.png)
 
 ### 3. Dashboard Interactivo de Auditoría Electoral BTCOL (Puerto 7070)
 ![Dashboard de Auditoría Criptográfica](docs/assets/audit_dashboard_screenshot.png)
