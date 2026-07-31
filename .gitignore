@@ -46,3 +46,4 @@ env/
 .vscode/
 .idea/
 .DS_Store
+graphify-out/

@@ -24,6 +24,9 @@ Incluye una **Urna Electoral BTCOL**, un **Dashboard de Monitoreo BTCOL en Tiemp
 ### 3. Dashboard Interactivo de Auditoría Electoral BTCOL (Puerto 7070)
 ![Dashboard de Auditoría Criptográfica](docs/assets/audit_dashboard_screenshot.png)
 
+### 4. Comprobante Electoral Impreso (Soporte Físico)
+![Ejemplo de Comprobante](docs/assets/comprobante_voto.jpg)
+
 ---
 
 ## 🎯 Funcionalidades y Capacidades Avanzadas
@@ -55,6 +58,11 @@ Incluye una **Urna Electoral BTCOL**, un **Dashboard de Monitoreo BTCOL en Tiemp
 ### 🚀 5. Arquitectura Escalable e Impulsada por Datos (Data-Driven)
 - El sistema escala de forma dinámica: para agregar nuevas Mesas o Candidatos, únicamente se deben registrar en el archivo centralizado `data/wallets.json`.
 - Los módulos de la plataforma detectan e integran las nuevas carteras automáticamente sin requerir alteraciones en el código fuente.
+
+### 🖨️ 6. Soporte en Papel y Doble Auditoría (Comprobantes Físicos)
+- **Generación Automática**: Al confirmarse el voto en la red Lightning, el sistema genera de forma autónoma un comprobante o ticket electoral digital en formato de imagen (`.jpg`).
+- **Trazabilidad Criptográfica**: Cada ticket incluye un código QR que contiene el _Payment Hash_ único de la transacción y el Checksum SHA256 de los datos respaldados, asegurando que el soporte no pueda ser falsificado.
+- **Urna Física de Respaldo**: Estos comprobantes pueden ser impresos inmediatamente (vía impresora térmica o convencional) y depositados por el votante en una urna física tradicional. Esto establece un mecanismo robusto de **doble auditoría**: permitiendo reconciliar matemáticamente el conteo electrónico inmutable con los soportes tangibles en papel.
 
 ---
 

@@ -1208,7 +1208,6 @@ def obtener_foto_candidato_audit(candidato_id):
         BASE_DIR / "mesa_code" / "data_mesa" / "fotos" / f"{candidato_id}.png",
         BASE_DIR / "mesa_code" / "data_mesa" / "fotos" / f"{candidato_id}.jpg",
         BASE_DIR / "mesa_code" / "data_mesa" / "fotos" / f"{candidato_id}.jpeg",
-        BASE_DIR / "data_mesa" / "fotos" / f"{candidato_id}.png",
         BASE_DIR / "mesa_code" / "web" / "templates" / "avatar_placeholder.svg"
     ]
     for p in foto_paths:
