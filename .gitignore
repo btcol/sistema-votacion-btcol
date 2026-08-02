@@ -6,6 +6,11 @@ data/wallets.json
 mesa_code/data_mesa/mesa_config.json
 mesa_code/data_mesa/candidatos.json
 
+# Archivos del módulo generador de configuraciones en lote (contienen llaves privadas)
+generador_configuracion_lote/*.csv
+generador_configuracion_lote/*.json
+generador_configuracion_lote/mesas_config/
+
 # Archivos de Variables de Entorno
 .env
 *.env
@@ -23,9 +28,6 @@ capturas_cedula/
 desencriptadas/
 comprobantes_emitidos/
 desencriptador/cedulas_desencriptadas/
-
-
-
 
 # ============================================================================
 # LOGS Y CACHES DE PYTHON
