@@ -3,6 +3,14 @@ votos_dashboard.py - Dashboard Web de Monitoreo Electoral en Tiempo Real (Soport
 
 Servidor web Flask read-only para visualizar los votos, saldos de candidato y mesas electorales
 en tiempo real a través de transacciones Bitcoin Lightning Network.
+
+Uso por Administradores Autorizados:
+    python3 frontend/votos_dashboard.py --fernet-key "TU_CLAVE_FERNET_CUSTOM_BASE64="
+
+⚠️ ADVERTENCIA DE SEGURIDAD PARA ADMINISTRADORES:
+La clave criptográfica Fernet permite descifrar en memoria la configuración de monitoreo (wallets.json.enc).
+Las claves Fernet contienen información delicada y deben ser custodiadas y manejadas estrictamente por
+los administradores autorizados del proceso electoral.
 """
 
 from dataclasses import dataclass, asdict
@@ -10,10 +18,12 @@ from datetime import datetime
 from enum import Enum
 import json
 import os
+import argparse
 from pathlib import Path
 import time
 import threading
 from typing import Dict, List, Optional
+from cryptography.fernet import Fernet, InvalidToken
 
 import sys
 from flask import Flask, render_template_string, jsonify, request, send_file
@@ -23,12 +33,26 @@ import requests
 # Directorio raíz del proyecto (2 niveles arriba desde frontend/)
 BASE_DIR = Path(__file__).resolve().parent.parent  # frontend/ -> raíz
 DATA_DIR = BASE_DIR / "data"
+GEN_DIR = BASE_DIR / "generador_configuracion_lote"
 
 sys.path.insert(0, str(BASE_DIR / "mesa_code"))
 from scripts.monitor_ws import MonitorWebSocket
 
-# Archivo de configuración unificado de wallets y settings
-WALLETS_CONFIG_FILE = DATA_DIR / "wallets.json"
+# Clave Fernet por defecto (fallback si no se pasa por CLI ni por variable de entorno)
+CLAVE_FERNET_DEFECTO = b"StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
+
+
+def obtener_clave_fernet_activa(clave_custom: Optional[str] = None) -> bytes:
+    """
+    Resuelve la clave Fernet dando prioridad a:
+    1. --fernet-key (Argumento CLI)
+    2. FERNET_KEY (Variable de Entorno)
+    3. CLAVE_FERNET_DEFECTO (Constante de respaldo)
+    """
+    raw_key = clave_custom or os.getenv("FERNET_KEY")
+    if raw_key:
+        return raw_key.encode('utf-8') if isinstance(raw_key, str) else raw_key
+    return CLAVE_FERNET_DEFECTO
 
 
 def normalize_wallets_dict(raw_data) -> Dict[str, Dict]:
@@ -70,37 +94,67 @@ def normalize_wallets_dict(raw_data) -> Dict[str, Dict]:
     return normalized
 
 
-def load_wallets_config() -> Dict:
+def load_wallets_config(clave_custom: Optional[str] = None) -> Dict:
     """
-    Carga la configuración de wallets y settings desde data/wallets.json
+    Carga y descifra la configuración de wallets desde wallets.json.enc (o wallets.json como fallback).
+    Prioriza data/wallets.json.enc y generador_configuracion_lote/wallets.json.enc.
     """
-    config_file = Path(WALLETS_CONFIG_FILE)
+    clave_bytes = obtener_clave_fernet_activa(clave_custom)
+    
+    rutas_enc = [
+        DATA_DIR / "wallets.json.enc",
+        GEN_DIR / "wallets.json.enc"
+    ]
+    rutas_json = [
+        DATA_DIR / "wallets.json",
+        GEN_DIR / "wallets.json"
+    ]
+    
+    data = None
+    
+    for enc_p in rutas_enc:
+        if enc_p.exists():
+            try:
+                fernet = Fernet(clave_bytes)
+                bytes_cifrados = enc_p.read_bytes()
+                texto_descifrado = fernet.decrypt(bytes_cifrados).decode('utf-8')
+                data = json.loads(texto_descifrado)
+                print(f"🔓 Dashboard descifró exitosamente: {enc_p.relative_to(BASE_DIR)}")
+                break
+            except InvalidToken:
+                print(f"❌ Error de descifrado en {enc_p.name}: Clave Fernet inválida.")
+                raise ValueError(f"Clave Fernet no válida para descifrar {enc_p.name}")
+            except Exception as e:
+                print(f"⚠️ Error leyendo {enc_p.name}: {e}")
 
-    if not config_file.exists():
+    if data is None:
+        for json_p in rutas_json:
+            if json_p.exists():
+                try:
+                    with open(json_p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        print(f"📄 Dashboard cargó config en texto plano desde: {json_p.relative_to(BASE_DIR)}")
+                        break
+                except Exception as e:
+                    print(f"⚠️ Error leyendo {json_p.name}: {e}")
+
+    if data is None:
         raise FileNotFoundError(
-            f"Archivo {WALLETS_CONFIG_FILE} no encontrado."
+            f"No se encontró wallets.json.enc ni wallets.json en {DATA_DIR} ni en {GEN_DIR}"
         )
 
-    try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return {
-                "settings": data.get("settings", {}),
-                "candidatos": normalize_wallets_dict(data.get("candidatos", [])),
-                "mesas": normalize_wallets_dict(data.get("mesas", []))
-            }
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Error parseando {WALLETS_CONFIG_FILE}. Asegúrate que es JSON válido.\n"
-            f"Error: {e}"
-        )
+    return {
+        "settings": data.get("settings", {}),
+        "candidatos": normalize_wallets_dict(data.get("candidatos", [])),
+        "mesas": normalize_wallets_dict(data.get("mesas", []))
+    }
 
 
-# Cargar configuración unificada desde JSON
+# Cargar configuración unificada desde JSON o JSON.ENC
 try:
     WALLETS_CONFIG = load_wallets_config()
 except (FileNotFoundError, ValueError) as e:
-    print(f"❌ Error al cargar configuración: {e}")
+    print(f"❌ Error al cargar configuración en el Dashboard: {e}")
     WALLETS_CONFIG = {"settings": {}, "candidatos": {}, "mesas": {}}
 
 SETTINGS = WALLETS_CONFIG.get("settings", {})
@@ -982,6 +1036,21 @@ def health_check():
 # ============================================================================
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Dashboard Web de Monitoreo Electoral en Tiempo Real (BTCOL)")
+    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet en Base64 para descifrar wallets.json.enc (Solo administradores autorizados)")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host del servidor Flask (por defecto: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=5050, help="Puerto del servidor Flask (por defecto: 5050)")
+    parser.add_argument("--debug", action="store_true", help="Activa el modo debug de Flask")
+    
+    args = parser.parse_args()
+    
+    if args.fernet_key:
+        try:
+            WALLETS_CONFIG = load_wallets_config(clave_custom=args.fernet_key)
+        except Exception as e:
+            print(f"❌ Error al recargar configuración con --fernet-key: {e}")
+            sys.exit(1)
+
     print(
         """
 ╔═══════════════════════════════════════════════════════════════╗
@@ -991,7 +1060,6 @@ if __name__ == "__main__":
     )
 
     print(f"📍 LNbits Endpoint: {LNBITS_ENDPOINT}")
-    print(f"📋 Archivo de configuración: {WALLETS_CONFIG_FILE}")
     print(f"🗳️ Tasa de conversión: 1 voto = {SATS_PER_VOTE} sats")
     print(f"🔒 Modo: Solo lectura (Invoice Keys)")
     print("")
@@ -1003,14 +1071,14 @@ if __name__ == "__main__":
     for name, info in WALLETS_CONFIG.get("mesas", {}).items():
         print(f"      - {info.get('display_name', name)}")
     print("")
-    print("🚀 Dashboard disponible en: http://localhost:5050")
+    print(f"🚀 Dashboard disponible en: http://localhost:{args.port}")
     print("")
 
-    debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    debug_val = args.debug or (os.getenv("FLASK_DEBUG", "False").lower() == "true")
 
     app.run(
-        host="0.0.0.0",
-        port=5050,
-        debug=debug,
-        use_reloader=debug,
+        host=args.host,
+        port=args.port,
+        debug=debug_val,
+        use_reloader=debug_val,
     )

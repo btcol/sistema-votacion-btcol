@@ -6,8 +6,13 @@ y/o la base de datos de pagos. Reconcilia los votos 1:1 entre Mesas y Candidatos
 irregulares (provenientes de wallets o mesas no autorizadas fuera de wallets.json) y despliega
 un Dashboard Web Interactivo de Auditoría en el puerto 7070.
 
-Uso:
-    python audit/auditoria_ln_votos.py
+Uso por Auditores Autorizados:
+    python3 audit/auditoria_ln_votos.py --fernet-key "TU_CLAVE_FERNET_CUSTOM_BASE64="
+
+⚠️ ADVERTENCIA DE SEGURIDAD PARA AUDITORES:
+La clave criptográfica Fernet permite descifrar en memoria la configuración de monitoreo (wallets.json.enc).
+Las claves Fernet contienen información delicada y deben ser custodiadas y manejadas estrictamente por
+los auditores y administradores autorizados del proceso electoral.
 """
 
 from dataclasses import dataclass, asdict
@@ -15,11 +20,13 @@ from datetime import datetime
 from enum import Enum
 import json
 import os
+import argparse
 from pathlib import Path
 import sqlite3
 import sys
 import time
 from typing import Dict, List, Optional, Tuple, Set
+from cryptography.fernet import Fernet, InvalidToken
 
 from flask import Flask, render_template_string, jsonify, request, send_file
 from flask_cors import CORS
@@ -28,10 +35,25 @@ import requests
 # Directorio raíz del proyecto (1 nivel arriba desde audit/)
 BASE_DIR = Path(__file__).resolve().parent.parent  # audit/ -> raíz
 DATA_DIR = BASE_DIR / "data"
+GEN_DIR = BASE_DIR / "generador_configuracion_lote"
 
-# Archivo de configuración unificado de wallets
-WALLETS_CONFIG_FILE = DATA_DIR / "wallets.json"
 DATABASE_FILE = DATA_DIR / "database.sqlite3"
+
+# Clave Fernet por defecto (fallback si no se pasa por CLI ni por variable de entorno)
+CLAVE_FERNET_DEFECTO = b"StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
+
+
+def obtener_clave_fernet_activa(clave_custom: Optional[str] = None) -> bytes:
+    """
+    Resuelve la clave Fernet dando prioridad a:
+    1. --fernet-key (Argumento CLI)
+    2. FERNET_KEY (Variable de Entorno)
+    3. CLAVE_FERNET_DEFECTO (Constante de respaldo)
+    """
+    raw_key = clave_custom or os.getenv("FERNET_KEY")
+    if raw_key:
+        return raw_key.encode('utf-8') if isinstance(raw_key, str) else raw_key
+    return CLAVE_FERNET_DEFECTO
 
 
 # ============================================================================
@@ -78,21 +100,60 @@ def normalize_wallets_dict(raw_data) -> Dict[str, Dict]:
     return normalized
 
 
-def load_wallets_config() -> Dict:
-    """Carga y normaliza wallets.json"""
-    if not WALLETS_CONFIG_FILE.exists():
-        raise FileNotFoundError(f"Archivo {WALLETS_CONFIG_FILE} no encontrado.")
+def load_wallets_config(clave_custom: Optional[str] = None) -> Dict:
+    """
+    Carga y descifra la configuración de wallets desde wallets.json.enc (o wallets.json como fallback).
+    Prioriza data/wallets.json.enc y generador_configuracion_lote/wallets.json.enc.
+    """
+    clave_bytes = obtener_clave_fernet_activa(clave_custom)
+    
+    rutas_enc = [
+        DATA_DIR / "wallets.json.enc",
+        GEN_DIR / "wallets.json.enc"
+    ]
+    rutas_json = [
+        DATA_DIR / "wallets.json",
+        GEN_DIR / "wallets.json"
+    ]
+    
+    data = None
+    
+    for enc_p in rutas_enc:
+        if enc_p.exists():
+            try:
+                fernet = Fernet(clave_bytes)
+                bytes_cifrados = enc_p.read_bytes()
+                texto_descifrado = fernet.decrypt(bytes_cifrados).decode('utf-8')
+                data = json.loads(texto_descifrado)
+                print(f"🔓 Auditoría descifró exitosamente: {enc_p.relative_to(BASE_DIR)}")
+                break
+            except InvalidToken:
+                print(f"❌ Error de descifrado en {enc_p.name}: Clave Fernet inválida.")
+                raise ValueError(f"Clave Fernet no válida para descifrar {enc_p.name}")
+            except Exception as e:
+                print(f"⚠️ Error leyendo {enc_p.name}: {e}")
 
-    try:
-        with open(WALLETS_CONFIG_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return {
-                "settings": data.get("settings", {}),
-                "candidatos": normalize_wallets_dict(data.get("candidatos", [])),
-                "mesas": normalize_wallets_dict(data.get("mesas", []))
-            }
-    except Exception as e:
-        raise ValueError(f"Error cargando {WALLETS_CONFIG_FILE}: {e}")
+    if data is None:
+        for json_p in rutas_json:
+            if json_p.exists():
+                try:
+                    with open(json_p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        print(f"📄 Auditoría cargó config en texto plano desde: {json_p.relative_to(BASE_DIR)}")
+                        break
+                except Exception as e:
+                    print(f"⚠️ Error leyendo {json_p.name}: {e}")
+
+    if data is None:
+        raise FileNotFoundError(
+            f"No se encontró wallets.json.enc ni wallets.json en {DATA_DIR} ni en {GEN_DIR}"
+        )
+
+    return {
+        "settings": data.get("settings", {}),
+        "candidatos": normalize_wallets_dict(data.get("candidatos", [])),
+        "mesas": normalize_wallets_dict(data.get("mesas", []))
+    }
 
 
 try:
@@ -1258,6 +1319,22 @@ def api_ejecutar_auditoria():
 # ============================================================================
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Dashboard Web de Auditoría Electoral LNbits (BTCOL)")
+    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet en Base64 para descifrar wallets.json.enc (Solo auditores autorizados)")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host del servidor Flask (por defecto: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=7070, help="Puerto del servidor Flask (por defecto: 7070)")
+    parser.add_argument("--debug", action="store_true", help="Activa el modo debug de Flask")
+    
+    args = parser.parse_args()
+    
+    if args.fernet_key:
+        try:
+            WALLETS_CONFIG = load_wallets_config(clave_custom=args.fernet_key)
+            motor_auditoria = MotorAuditoriaElectoral(WALLETS_CONFIG)
+        except Exception as e:
+            print(f"❌ Error al recargar configuración de auditoría con --fernet-key: {e}")
+            sys.exit(1)
+
     print(
         """
 ╔═══════════════════════════════════════════════════════════════╗
@@ -1268,23 +1345,23 @@ if __name__ == "__main__":
     )
 
     print(f"📍 LNbits Endpoint: {LNBITS_ENDPOINT}")
-    print(f"📋 Archivo Wallets Autorizadas: {WALLETS_CONFIG_FILE}")
     print(f"🗳️ Tasa de conversión: 1 voto = {SATS_PER_VOTE} sats")
     print("")
 
-    # Ejecutar auditoría CLI inicial
-    res = motor_auditoria.ejecutar_auditoria()
-    print("📊 RESUMEN INICIAL DE AUDITORÍA:")
-    print(f"   🟢 Votos Válidos Autorizados: {res['resumen']['votos_validos']}")
-    print(f"   🔴 Votos Irregulares Detectados: {res['resumen']['votos_irregulares']}")
-    print(f"   🛡️ Integridad Electoral: {res['resumen']['pct_integridad']}%")
+    try:
+        res = motor_auditoria.ejecutar_auditoria()
+        print("📊 RESUMEN INICIAL DE AUDITORÍA:")
+        print(f"   🟢 Votos Válidos Autorizados: {res['resumen']['votos_validos']}")
+        print(f"   🔴 Votos Irregulares Detectados: {res['resumen']['votos_irregulares']}")
+        print(f"   🛡️ Integridad Electoral: {res['resumen']['pct_integridad']}%")
+    except Exception as e:
+        print(f"⚠️ Nota auditoría inicial: {e}")
     print("")
-    print("🚀 Dashboard Interactivo disponible en: http://localhost:7070")
+    print(f"🚀 Dashboard Interactivo disponible en: http://localhost:{args.port}")
     print("")
 
-    # Arrancar hilo de sincronización en segundo plano (RAM Cache)
     sync_thread = threading.Thread(target=audit_cache.sync_loop, daemon=True)
     sync_thread.start()
 
-    debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
-    app.run(host="0.0.0.0", port=7070, debug=debug)
+    debug_val = args.debug or (os.getenv("FLASK_DEBUG", "False").lower() == "true")
+    app.run(host=args.host, port=args.port, debug=debug_val, use_reloader=debug_val)

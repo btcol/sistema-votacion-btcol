@@ -3,6 +3,8 @@
 # ============================================================================
 # Contienen Admin Keys e Invoice Keys reales de LNbits
 data/wallets.json
+data/*.json
+mesa_code/data_mesa/*.json
 mesa_code/data_mesa/mesa_config.json
 mesa_code/data_mesa/candidatos.json
 
@@ -10,6 +12,9 @@ mesa_code/data_mesa/candidatos.json
 generador_configuracion_lote/*.csv
 generador_configuracion_lote/*.json
 generador_configuracion_lote/mesas_config/
+generador_configuracion_lote/mesas_desplegadas/
+mesas_desplegadas/
+
 
 # Archivos de Variables de Entorno
 .env

@@ -17,8 +17,9 @@ opencv-python>=4.8.0
 Pillow>=10.0.0
 numpy>=1.24.0
 
-# 🔐 3. Criptografía y Seguridad Simétrica (Cifrado AES-256 de Cédulas)
+# 🔐 3. Criptografía y Seguridad Simétrica (Cifrado AES-256 de Cédulas y Ofuscación)
 cryptography>=41.0.0
+pyarmor>=9.0.0
 
 # 🖨️ 4. Impresora Térmica ESC/POS, Códigos QR y Comprobantes
 python-escpos>=3.0

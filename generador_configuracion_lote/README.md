@@ -1,72 +1,88 @@
-# 🛠️ Generador Masivo de Configuraciones JSON & Encriptación Fernet
-
-Módulo automatizado en Python para procesar archivos CSV de wallets de la plataforma y un archivo de parámetros globales en Markdown (`config_global.md`), generando y encriptando en lote todas las configuraciones JSON necesarias para las Mesas Electorales, la Urna Web y los Dashboards de Auditoría/Monitoreo Global.
-
-## ⚙️ Archivo de Parámetros Globales (`config_global.md`)
-
-Puedes definir la URL de tu nodo LNbits (`url_lnbits`) y el valor en satoshis por voto (`sats_per_vote`) editando el archivo `config_global.md`:
-
-```markdown
-# ⚙️ Parámetros Globales de Configuración
-
-- **url_lnbits**: http://tu_nodo_lnbits_o_tor.onion
-- **sats_per_vote**: 1
-```
+# 🛠️ Orquestador de Configuración Masiva, Cifrado Fernet & Ofuscación PyArmor
+### *Módulo de Despliegue Seguro de Terminales Electorales BTCOL*
 
 ---
 
-## 📁 Estructura de Salida Generada
+## 📖 Descripción General
 
-Al ejecutar `generar_configs.py`, se crean automáticamente en una sola pasada tanto los archivos `.json` en texto plano como sus versiones cifradas `.json.enc` con la clave Fernet empotrada:
+El módulo `generador_configuracion_lote` es el componente centralizado de aprovisionamiento electoral. A partir de un archivo CSV consolidado de wallets (`wallets.csv`) y un archivo de parámetros globales (`config_global.md`), este orquestador realiza de forma completamente automatizada:
 
-```
-generador_configuracion_lote/
-├── config_global.md
-├── wallets.csv
-├── generar_configs.py               <-- Script unificado de generación y cifrado
-├── candidatos.json                  <-- Lista consolidada en texto plano
-├── candidatos.json.enc              <-- Lista consolidada cifrada con Fernet
-├── wallets.json                     <-- Monitoreo global en texto plano
-├── wallets.json.enc                 <-- Monitoreo global cifrado
-└── mesas_config/
-    ├── mesa_code1/
-    │   ├── mesa_config.json
-    │   └── mesa_config.json.enc    <-- Configuración cifrada lista para producción
-    ├── mesa_code2/
-    │   ├── mesa_config.json
-    │   └── mesa_config.json.enc
-    └── mesa_code3/
-        ├── mesa_config.json
-        └── mesa_config.json.enc
-```
+1. **Generación y Normalización de Entidades**: Identifica candidatos y mesas electorales asignando puertos, endpoints y parámetros.
+2. **Cifrado Criptográfico Fernet (AES-128-CBC)**: Cifra todos los archivos de configuración (`candidatos.json.enc`, `mesa_config.json.enc`, `wallets.json.enc`).
+3. **Aprovisionamiento Automático para Dashboards**: Genera y guarda automáticamente `data/wallets.json.enc` para el consumo del Dashboard de Monitoreo (`frontend/votos_dashboard.py`) y del Dashboard de Auditoría (`audit/auditoria_ln_votos.py`).
+4. **Clonación y Personalización de Urnas**: Clona la plantilla base `mesa_code/` para cada mesa en `mesas_desplegadas/mesa_code<N>/` inyectándole sus archivos cifrados particulares.
+5. **Inyección Dinámica de Claves y Ofuscación con PyArmor**: Inyecta la clave Fernet en `scripts/config.py` y compila el código fuente Python con **PyArmor 9**, blindando las terminales de votación contra manipulación física o ingeniería inversa.
+6. **Eliminación Automática de Archivos Planos**: Borra por defecto los archivos `.json` en texto claro para evitar filtraciones de credenciales.
 
 ---
 
-## 📊 Formato del Archivo CSV de Entrada
+## 🔑 Gestión de la Clave Fernet
 
-El CSV debe contener el siguiente encabezado de columnas:
+La clave criptográfica puede definirse en la variable `CLAVE_FERNET` al inicio de `generar_configs.py` o pasarse mediante el argumento CLI `--fernet-key`.
 
-```csv
-"wallet_name","wallet_id","admin_key","invoice_key","initial_balance","status","error"
-"candidato1","f8531e0f4b274852a45db0b199eb9fbb","","903ab1afc1034726ae12274b3cb277b5","0","success",""
-"mesa1","37f8e544cbb04d1faacd668cc7a3d2d3","d56f9970fa5641f585fec79b8d9b3390","a31a64e9a0fc423dbe79e172a5b08ada","500","success",""
-```
-
-### Regla de Diferenciación Automática:
-- **Mesa Electoral**: La fila contiene un valor no vacío en la columna `admin_key`. Se guarda en `mesas_config/mesa_code<N>/mesa_config.json` y `mesa_config.json.enc`.
-- **Candidato**: La columna `admin_key` está vacía (`""`). Se agrupa en `candidatos.json` y `candidatos.json.enc`.
-
----
-
-## 🚀 Instrucciones de Uso
-
+### Generar una nueva clave segura y aleatoria:
 ```bash
-# 1. Generación estándar (crea archivos .json y cifrados .json.enc)
-python generador_configuracion_lote/generar_configs.py
-
-# 2. Generación limpia para producción (elimina los .json planos y deja solo los .json.enc cifrados)
-python generador_configuracion_lote/generar_configs.py --clean-json
-
-# 3. Generación omitiendo el cifrado Fernet (solo archivos .json)
-python generador_configuracion_lote/generar_configs.py --skip-encrypt
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+---
+
+## 📁 Estructura del Módulo y Salida Generada
+
+```
+sistema-votacion-btcol/
+├── data/
+│   └── wallets.json.enc              <-- Archivo cifrado de monitoreo global
+│
+└── generador_configuracion_lote/
+    ├── config_global.md             <-- Parámetros globales (URL LNbits Tor, sats_per_vote)
+    ├── wallets.csv                  <-- CSV de carteras exportadas
+    ├── generar_configs.py           <-- Script orquestador
+    ├── candidatos.json.enc          <-- Lista consolidada de candidatos cifrada
+    ├── wallets.json.enc             <-- Copia cifrada de respaldo
+    └── mesas_desplegadas/
+        ├── mesa_code1/              <-- Terminal de Mesa 1 (Código ofuscado con PyArmor)
+        │   ├── app_web_mesa.py
+        │   ├── pyarmor_runtime_000000/
+        │   └── data_mesa/
+        │       ├── candidatos.json.enc
+        │       └── mesa_config.json.enc
+        ├── mesa_code2/
+        └── mesa_code3/
+```
+
+---
+
+## ⚙️ Opciones de Línea de Comandos (`generar_configs.py`)
+
+| Argumento | Tipo | Por Defecto | Descripción |
+|---|---|---|---|
+| `--csv` | Ruta | `wallets.csv` | Ruta al archivo CSV con las wallets exportadas. |
+| `--config-md` | Ruta | `config_global.md` | Archivo Markdown con `url_lnbits` y `sats_per_vote`. |
+| `--fernet-key` | String Base64 | `None` (Usa const) | Clave Fernet de 44 caracteres para cifrar las configuraciones. |
+| `--keep-json` | Flag | `False` | Conserva los archivos `.json` planos en disco (solo desarrollo). |
+| `--skip-obfuscate` | Flag | `False` | Omite la ofuscación con PyArmor (útil para depuración). |
+| `--out-dir` | Ruta | `.` | Directorio de salida para los archivos consolidados. |
+
+---
+
+## 🚀 Ejemplos de Uso
+
+### 1. Despliegue Estándar de Producción (Recomendado)
+```bash
+python3 generador_configuracion_lote/generar_configs.py --fernet-key "StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
+```
+
+### 2. Modo de Desarrollo / Depuración (Mantiene JSONs y sin ofuscar)
+```bash
+python3 generador_configuracion_lote/generar_configs.py --keep-json --skip-obfuscate
+```
+
+---
+
+## 🛡️ Medidas de Seguridad de las Terminales Desplegadas
+
+1. **Inaccesibilidad de Credenciales**: Cada mesa en `mesas_desplegadas/mesa_code<N>` solo contiene archivos `.json.enc` binarios. No existen archivos `.env` ni JSONs legibles.
+2. **Protección del Bytecode**: El código Python es procesado con PyArmor, evitando que la clave o la lógica interna de validación de cédulas y pagos pueda ser adulterada localmente.
+3. **Aislamiento por Mesa**: Cada carpeta de mesa solo conoce su propia `Admin Key` y no tiene acceso a las credenciales de otras mesas.
+

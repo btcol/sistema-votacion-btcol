@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-generar_configs.py - Generador masivo de configuraciones JSON y encriptación en lote para el Sistema de Votación BTCOL.
+generar_configs.py - Generador masivo, cifrador Fernet, clonador de mesa_code y ofuscador PyArmor.
 
-Lee un archivo CSV de wallets y opcionalmente un archivo .md de parámetros globales (config_global.md)
-para generar y encriptar automáticamente todos los JSONs requeridos por la plataforma:
-- wallets.json & wallets.json.enc (Monitoreo global)
-- candidatos.json & candidatos.json.enc (Urnas de mesas)
-- mesas_config/mesa_code<N>/mesa_config.json & mesa_config.json.enc (Configuración individual por mesa)
+Procesa el CSV de wallets y config_global.md para:
+1. Generar y cifrar los archivos .json.enc (candidatos.json.enc, wallets.json.enc, mesa_config.json.enc).
+2. Clonar y personalizar la carpeta mesa_code para cada mesa en mesas_desplegadas/mesa_code<N>/.
+3. Inyectar dinámicamente la CLAVE_FERNET centralizada en scripts/config.py de cada mesa antes de ofuscar.
+4. Ofuscar el código Python de cada mesa desplegada usando PyArmor para blindar CLAVE_FERNET.
 
-Uso:
-    python generar_configs.py [--csv ARCHIVO.csv] [--config-md CONFIG.md] [--output-dir DIR] [--clean-json] [--skip-encrypt]
+🔑 Generar una nueva Clave Fernet aleatoria y segura en la terminal:
+    python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+Uso recomendado:
+    python3 generar_configs.py --fernet-key "TU_CLAVE_FERNET_BASE64="
 """
 
 import os
@@ -17,17 +20,40 @@ import sys
 import csv
 import json
 import re
+import shutil
+import subprocess
 import argparse
 from pathlib import Path
 from cryptography.fernet import Fernet
 
-# 🔑 Clave Fernet empotrada (quemada en el script)
-CLAVE_FERNET = b"rY7b4_x8K2vP9mN3qL0wJ5zT1uX8iO4aS7dF2gH5jK8="
+# 🔑 CLAVE FERNET CENTRALIZADA (Defínela aquí o pásala mediante el argumento --fernet-key)
+# Para generar una nueva clave aleatoria válida ejecuta:
+# python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+CLAVE_FERNET = b"StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
 
-def encriptar_bytes(raw_bytes: bytes) -> bytes:
-    """Encripta los bytes usando la clave Fernet empotrada."""
-    fernet = Fernet(CLAVE_FERNET)
+def encriptar_bytes(raw_bytes: bytes, clave_bytes: bytes = None) -> bytes:
+    """Encripta los bytes usando la clave Fernet especificada o la centralizada."""
+    key = clave_bytes or CLAVE_FERNET
+    fernet = Fernet(key)
     return fernet.encrypt(raw_bytes)
+
+def inyectar_clave_fernet_en_mesa(config_py_path: Path, clave_bytes: bytes):
+    """Inyecta la CLAVE_FERNET centralizada directamente en el archivo scripts/config.py de la mesa clonada."""
+    if not config_py_path.exists():
+        print(f"⚠️ No se encontró {config_py_path} para inyectar CLAVE_FERNET.")
+        return
+
+    content = config_py_path.read_text(encoding='utf-8')
+    # Reemplazar la asignación CLAVE_FERNET = ...
+    patron = r'CLAVE_FERNET\s*=\s*(?:b"[^"]*"|b\'[^\']*\')'
+    nueva_linea = f'CLAVE_FERNET = {clave_bytes!r}'
+    
+    nuevo_contenido, reemplazos = re.subn(patron, nueva_linea, content)
+    if reemplazos > 0:
+        config_py_path.write_text(nuevo_contenido, encoding='utf-8')
+        print(f" └─ 🔑 CLAVE_FERNET inyectada exitosamente en {config_py_path.relative_to(config_py_path.parent.parent.parent)}")
+    else:
+        print(f" ⚠️ No se pudo localizar el patrón CLAVE_FERNET en {config_py_path.name}")
 
 def cargar_config_md(md_path: Path) -> dict:
     """Extrae parámetros como url_lnbits y sats_per_vote desde un archivo Markdown."""
@@ -43,13 +69,11 @@ def cargar_config_md(md_path: Path) -> dict:
     print(f"📖 Cargando parámetros globales desde: {md_path}")
     content = md_path.read_text(encoding='utf-8')
     
-    # Buscar url_lnbits
     m_url = re.search(r'url_lnbits(?:\*\*)?\s*[:=]\s*([^\s\n]+)', content, re.IGNORECASE)
     if m_url:
         val_url = m_url.group(1).strip('`*"\':<>')
         config_defecto["url_lnbits"] = val_url
         
-    # Buscar sats_per_vote
     m_sats = re.search(r'sats_per_vote(?:\*\*)?\s*[:=]\s*(\d+)', content, re.IGNORECASE)
     if m_sats:
         config_defecto["sats_per_vote"] = int(m_sats.group(1))
@@ -91,30 +115,71 @@ def obtener_nombre_directorio_mesa(wallet_name: str) -> str:
             return f"mesa_code{num}"
     return f"mesa_code_{wallet_name}"
 
-def guardar_json_y_enc(ruta_json: Path, datos_dict: dict, encriptar: bool = True, borrar_json_plano: bool = False):
-    """Guarda el archivo .json y opcionalmente crea su versión encriptada .json.enc."""
+def guardar_json_y_enc(ruta_json: Path, datos_dict: dict, clave_bytes: bytes, encriptar: bool = True, borrar_json_plano: bool = True):
+    """Guarda el archivo .json y crea su versión encriptada .json.enc. Borra .json plano por defecto."""
     json_bytes = json.dumps(datos_dict, indent=2, ensure_ascii=False).encode('utf-8')
     
-    # 1. Guardar archivo .json plano si no se solicitó borrar directo
-    if not borrar_json_plano:
-        ruta_json.write_bytes(json_bytes)
-        print(f"📄 Archivo generado: {ruta_json.name}")
-        
-    # 2. Guardar versión encriptada .json.enc
+    ruta_enc = Path(str(ruta_json) + ".enc")
     if encriptar:
-        ruta_enc = Path(str(ruta_json) + ".enc")
-        bytes_cifrados = encriptar_bytes(json_bytes)
+        bytes_cifrados = encriptar_bytes(json_bytes, clave_bytes=clave_bytes)
         ruta_enc.write_bytes(bytes_cifrados)
         print(f" └─ 🔒 Encriptado exitoso: {ruta_enc.name} ({len(bytes_cifrados)} bytes)")
         
-    # 3. Eliminar json plano si se pasó --clean-json
-    if borrar_json_plano and ruta_json.exists():
+    if not borrar_json_plano:
+        ruta_json.write_bytes(json_bytes)
+        print(f"📄 Archivo texto plano conservado: {ruta_json.name}")
+    elif ruta_json.exists():
         ruta_json.unlink()
-        print(f" └─ 🧹 Texto plano eliminado por --clean-json: {ruta_json.name}")
 
-def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encriptar: bool = True, borrar_json_plano: bool = False):
-    """Lee el CSV y genera/encripta todos los archivos de configuración."""
+def ofuscar_directorio_mesa(mesa_dir: Path):
+    """Ofusca los archivos Python de una mesa desplegada usando PyArmor para proteger CLAVE_FERNET."""
+    print(f" 🛡️  Ofuscando código Python con PyArmor en: {mesa_dir.name}...")
+    
+    tmp_out = mesa_dir / "_pyarmor_dist"
+    if tmp_out.exists():
+        shutil.rmtree(tmp_out)
+        
+    cmd = [
+        sys.executable, "-m", "pyarmor.cli", "gen",
+        "-O", str(tmp_out),
+        "-r",
+        str(mesa_dir / "app_web_mesa.py"),
+        str(mesa_dir / "app_desktop.py"),
+        str(mesa_dir / "scripts")
+    ]
+    
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        
+        for src_item in tmp_out.glob("*"):
+            if src_item.is_dir():
+                dest_item = mesa_dir / src_item.name
+                if dest_item.exists():
+                    shutil.rmtree(dest_item)
+                shutil.copytree(src_item, dest_item)
+            elif src_item.is_file():
+                shutil.copy2(src_item, mesa_dir / src_item.name)
+                
+        scripts_obf = tmp_out / "scripts"
+        if scripts_obf.exists():
+            for item in scripts_obf.rglob("*.py"):
+                rel_p = item.relative_to(scripts_obf)
+                dest_p = mesa_dir / "scripts" / rel_p
+                dest_p.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, dest_p)
+
+        shutil.rmtree(tmp_out)
+        print(f"   ✅ Código de {mesa_dir.name} ofuscado correctamente con PyArmor.")
+        
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️ Error ejecutando PyArmor en {mesa_dir.name}: {e.stderr}")
+    except Exception as e:
+        print(f"⚠️ Error en ofuscación de {mesa_dir.name}: {e}")
+
+def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, clave_bytes: bytes, keep_json: bool = False, skip_obfuscate: bool = False):
+    """Lee el CSV, genera/encripta JSONs, clona mesa_code por cada mesa, inyecta CLAVE_FERNET y ofusca con PyArmor."""
     print(f"📖 Leyendo CSV de entrada: {csv_path}")
+    print(f"🔑 Clave Fernet activa: {clave_bytes.decode('utf-8')[:10]}...")
     
     if not csv_path.exists():
         print(f"❌ Error: El archivo '{csv_path}' no existe.")
@@ -125,6 +190,7 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
     
     url_lnbits = global_params.get("url_lnbits", "http://localhost:5000")
     sats_per_vote = global_params.get("sats_per_vote", 100)
+    borrar_json_plano = not keep_json
     
     with open(csv_path, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -149,7 +215,6 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
                 
             nombre_legible = formatear_nombre(w_name)
             
-            # Si admin_key NO está vacía -> Es una Mesa Electoral
             if admin_key:
                 mesa_count += 1
                 puerto = 2006 + mesa_count
@@ -166,7 +231,6 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
                 }
                 mesas_list.append(mesa_info)
             else:
-                # Si admin_key está vacía -> Es un Candidato
                 foto = f"fotos/{w_name}.png"
                 if w_name.lower() == 'voto_en_blanco':
                     foto = "fotos/blanco.png"
@@ -184,12 +248,12 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
     print(f"   • Candidatos detectados: {len(candidatos_list)}")
     print(f"   • Mesas detectadas:      {len(mesas_list)}")
     
-    # Crear carpeta de salida
+    # Crear carpetas de salida
     output_dir.mkdir(parents=True, exist_ok=True)
-    mesas_output_dir = output_dir / "mesas_config"
-    mesas_output_dir.mkdir(parents=True, exist_ok=True)
+    mesas_desplegadas_dir = output_dir / "mesas_desplegadas"
+    mesas_desplegadas_dir.mkdir(parents=True, exist_ok=True)
     
-    # 1. Generar y encriptar candidatos.json
+    # 1. Generar candidatos.json & candidatos.json.enc
     candidatos_json_data = {
         "candidatos": [
             {
@@ -205,9 +269,9 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
         ]
     }
     candidatos_file = output_dir / "candidatos.json"
-    guardar_json_y_enc(candidatos_file, candidatos_json_data, encriptar=encriptar, borrar_json_plano=borrar_json_plano)
+    guardar_json_y_enc(candidatos_file, candidatos_json_data, clave_bytes=clave_bytes, encriptar=True, borrar_json_plano=borrar_json_plano)
     
-    # 2. Generar y encriptar wallets.json
+    # 2. Generar wallets.json & wallets.json.enc
     wallets_json_data = {
         "settings": {
             "url_lnbits": url_lnbits,
@@ -239,13 +303,54 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
         ]
     }
     wallets_file = output_dir / "wallets.json"
-    guardar_json_y_enc(wallets_file, wallets_json_data, encriptar=encriptar, borrar_json_plano=borrar_json_plano)
+    guardar_json_y_enc(wallets_file, wallets_json_data, clave_bytes=clave_bytes, encriptar=True, borrar_json_plano=borrar_json_plano)
     
-    # 3. Generar y encriptar <dir_mesa>/mesa_config.json para cada mesa
-    for m in mesas_list:
-        folder_mesa = mesas_output_dir / m["dir_name"]
-        folder_mesa.mkdir(parents=True, exist_ok=True)
+    # Ruta raíz del repositorio
+    project_root = Path(__file__).resolve().parent.parent
+    
+    # 2b. Guardar copia de wallets.json.enc en data/ para el Dashboard
+    data_dir_root = project_root / "data"
+    data_dir_root.mkdir(parents=True, exist_ok=True)
+    guardar_json_y_enc(data_dir_root / "wallets.json", wallets_json_data, clave_bytes=clave_bytes, encriptar=True, borrar_json_plano=borrar_json_plano)
+    print(f" └─ 📊 Configuración de monitoreo guardada en: data/wallets.json.enc")
+    
+    # Ruta de la plantilla mesa_code en la raíz del repositorio
+    template_mesa_dir = project_root / "mesa_code"
+    
+    if not template_mesa_dir.exists():
+        print(f"❌ Error: La carpeta plantilla '{template_mesa_dir}' no existe.")
+        sys.exit(1)
         
+    print(f"\n📦 Clonando, inyectando CLAVE_FERNET y personalizando {len(mesas_list)} paquete(s) de Mesa Electoral...")
+    
+    # 3. Clonar mesa_code por cada mesa, inyectar CLAVE_FERNET y sus archivos cifrados
+    for m in mesas_list:
+        dest_mesa_dir = mesas_desplegadas_dir / m["dir_name"]
+        
+        if dest_mesa_dir.exists():
+            shutil.rmtree(dest_mesa_dir)
+            
+        print(f"\n🖥️  Configurando {m['dir_name']} ({m['nombre']})...")
+        
+        # Copiar plantilla mesa_code
+        shutil.copytree(
+            template_mesa_dir,
+            dest_mesa_dir,
+            ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.db', '*.sqlite3', 'logs', 'votos_local.db', '.git', '*.enc')
+        )
+        
+        # Inyectar CLAVE_FERNET centralizada en scripts/config.py antes de cualquier cifrado/ofuscación
+        inyectar_clave_fernet_en_mesa(dest_mesa_dir / "scripts" / "config.py", clave_bytes)
+        
+        # Preparar data_mesa de la mesa clonada
+        data_mesa_target = dest_mesa_dir / "data_mesa"
+        data_mesa_target.mkdir(parents=True, exist_ok=True)
+        
+        # Inyectar candidatos.json.enc
+        candidatos_bytes = json.dumps(candidatos_json_data, indent=2, ensure_ascii=False).encode('utf-8')
+        (data_mesa_target / "candidatos.json.enc").write_bytes(encriptar_bytes(candidatos_bytes, clave_bytes=clave_bytes))
+        
+        # Inyectar mesa_config.json.enc de la mesa
         mesa_config_data = {
             "mesa": {
                 "id": m["id"],
@@ -261,11 +366,20 @@ def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, encripta
                 "estado": "activo"
             }
         }
-        mesa_file = folder_mesa / "mesa_config.json"
-        guardar_json_y_enc(mesa_file, mesa_config_data, encriptar=encriptar, borrar_json_plano=borrar_json_plano)
+        mesa_config_bytes = json.dumps(mesa_config_data, indent=2, ensure_ascii=False).encode('utf-8')
+        (data_mesa_target / "mesa_config.json.enc").write_bytes(encriptar_bytes(mesa_config_bytes, clave_bytes=clave_bytes))
         
-    print("\n🎉 Proceso completado con éxito. Archivos listos en:")
-    print(f"   👉 {output_dir.resolve()}/")
+        if borrar_json_plano:
+            for raw_j in data_mesa_target.glob("*.json"):
+                raw_j.unlink()
+            print(f"   └─ 🧹 Archivos .json planos eliminados en {m['dir_name']}/data_mesa/")
+            
+        # 4. Ofuscar con PyArmor con la clave ya inyectada
+        if not skip_obfuscate:
+            ofuscar_directorio_mesa(dest_mesa_dir)
+            
+    print("\n🎉 Proceso completado con éxito. Todas las mesas están listas en:")
+    print(f"   👉 {mesas_desplegadas_dir.resolve()}/")
 
 def main():
     script_dir = Path(__file__).resolve().parent
@@ -280,23 +394,27 @@ def main():
         
     config_md_defecto = script_dir / "config_global.md"
     
-    parser = argparse.ArgumentParser(description="Generador en lote de configuraciones JSON y encriptación Fernet.")
+    parser = argparse.ArgumentParser(description="Generador masivo, cifrador Fernet, clonador de mesas y ofuscador PyArmor.")
     parser.add_argument("--csv", type=str, default=str(csv_defecto), help="Ruta al archivo CSV de entrada")
     parser.add_argument("--config-md", type=str, default=str(config_md_defecto), help="Ruta al archivo .md con parámetros globales")
-    parser.add_argument("--output-dir", type=str, default=str(script_dir), help="Directorio de salida para los JSONs")
-    parser.add_argument("--clean-json", action="store_true", help="Elimina los archivos .json en texto plano tras generar las versiones .json.enc")
-    parser.add_argument("--skip-encrypt", action="store_true", help="Genera únicamente los archivos .json sin crear las versiones .json.enc")
+    parser.add_argument("--output-dir", type=str, default=str(script_dir), help="Directorio donde se generarán los desplegables")
+    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet personalizada en Base64 (sobrescribe la constante CLAVE_FERNET)")
+    parser.add_argument("--keep-json", action="store_true", help="Conserva los archivos .json planos (por defecto se eliminan dejándolos solo .json.enc)")
+    parser.add_argument("--skip-obfuscate", action="store_true", help="Omite la ofuscación con PyArmor")
     
     args = parser.parse_args()
     
     params_globales = cargar_config_md(Path(args.config_md))
     
+    clave_activa = args.fernet-key.encode('utf-8') if args.fernet_key else CLAVE_FERNET
+    
     procesar_csv(
         csv_path=Path(args.csv),
         output_dir=Path(args.output_dir),
         global_params=params_globales,
-        encriptar=not args.skip_encrypt,
-        borrar_json_plano=args.clean_json
+        clave_bytes=clave_activa,
+        keep_json=args.keep_json,
+        skip_obfuscate=args.skip_obfuscate
     )
 
 if __name__ == "__main__":

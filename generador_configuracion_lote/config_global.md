@@ -4,5 +4,5 @@ Este archivo contiene la configuración global que utilizará el script `generar
 
 ## Parámetros
 
-- **url_lnbits**: http://tu_nodo_lnbits_o_tor.onion
-- **sats_per_vote**: 100
+- **url_lnbits**: <http://hfkhmwqeszzn2pb435aj7jvijiimdblfk7ols5bgzcjysgmjhfk3neyd.onion>
+- **sats_per_vote**: 1
