@@ -37,9 +37,14 @@ GEN_DIR = BASE_DIR / "generador_configuracion_lote"
 
 sys.path.insert(0, str(BASE_DIR / "mesa_code"))
 from scripts.monitor_ws import MonitorWebSocket
-
-# Clave Fernet por defecto (fallback si no se pasa por CLI ni por variable de entorno)
-CLAVE_FERNET_DEFECTO = b"StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
+from scripts.seguridad_logs import (
+    enmascarar_url,
+    enmascarar_key,
+    enmascarar_hash,
+    sanitizar_texto,
+    resolver_clave_fernet,
+    extraer_clave_fernet_md
+)
 
 
 def obtener_clave_fernet_activa(clave_custom: Optional[str] = None) -> bytes:
@@ -47,12 +52,9 @@ def obtener_clave_fernet_activa(clave_custom: Optional[str] = None) -> bytes:
     Resuelve la clave Fernet dando prioridad a:
     1. --fernet-key (Argumento CLI)
     2. FERNET_KEY (Variable de Entorno)
-    3. CLAVE_FERNET_DEFECTO (Constante de respaldo)
+    3. generador_configuracion_lote/config_global.md
     """
-    raw_key = clave_custom or os.getenv("FERNET_KEY")
-    if raw_key:
-        return raw_key.encode('utf-8') if isinstance(raw_key, str) else raw_key
-    return CLAVE_FERNET_DEFECTO
+    return resolver_clave_fernet(clave_custom=clave_custom, md_path=GEN_DIR / "config_global.md")
 
 
 def normalize_wallets_dict(raw_data) -> Dict[str, Dict]:
@@ -255,16 +257,16 @@ class LNBitsClient:
             return response.json()
 
         except requests.exceptions.Timeout:
-            print(f"⏱️ Timeout en {path} ({url})")
+            print(f"⏱️ Timeout en {path} ({enmascarar_url(url)})")
             return None
         except requests.exceptions.ConnectionError as e:
-            print(f"🔌 Error de conexión a {url}: {e}")
+            print(f"🔌 Error de conexión a {enmascarar_url(url)}: {sanitizar_texto(str(e))}")
             return None
         except requests.exceptions.HTTPError as e:
-            print(f"❌ Error HTTP {e.response.status_code} en {path}: {e}")
+            print(f"❌ Error HTTP {e.response.status_code} en {path}: {sanitizar_texto(str(e))}")
             return None
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error en request: {e}")
+            print(f"❌ Error en request: {sanitizar_texto(str(e))}")
             return None
         except json.JSONDecodeError:
             print(f"❌ Respuesta no es JSON válido")
@@ -322,7 +324,7 @@ class WalletMonitor:
                     try:
                         monitor.forzar_actualizacion_saldo()
                     except Exception as e:
-                        print(f"Error forzando actualización de {name}: {e}")
+                        print(f"Error forzando actualización de {name}: {sanitizar_texto(str(e))}")
 
         threading.Thread(target=_sync_loop, daemon=True, name="DashboardSync").start()
 
@@ -957,8 +959,8 @@ def get_wallets_status():
             }
         )
     except Exception as e:
-        print(f"Error en /api/wallets/status: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"Error en /api/wallets/status: {sanitizar_texto(str(e))}")
+        return jsonify({"success": False, "error": sanitizar_texto(str(e))}), 500
 
 
 @app.route("/api/candidatos/status")
@@ -972,8 +974,8 @@ def get_candidatos_status():
             }
         )
     except Exception as e:
-        print(f"Error en /api/candidatos/status: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"Error en /api/candidatos/status: {sanitizar_texto(str(e))}")
+        return jsonify({"success": False, "error": sanitizar_texto(str(e))}), 500
 
 
 @app.route("/api/mesas/status")
@@ -987,8 +989,8 @@ def get_mesas_status():
             }
         )
     except Exception as e:
-        print(f"Error en /api/mesas/status: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"Error en /api/mesas/status: {sanitizar_texto(str(e))}")
+        return jsonify({"success": False, "error": sanitizar_texto(str(e))}), 500
 
 
 @app.route("/api/wallets/<wallet_name>/status")
@@ -1000,8 +1002,8 @@ def get_wallet_status(wallet_name: str):
 
         return jsonify({"success": True, "wallet": asdict(status)})
     except Exception as e:
-        print(f"Error en /api/wallets/{wallet_name}/status: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"Error en /api/wallets/{wallet_name}/status: {sanitizar_texto(str(e))}")
+        return jsonify({"success": False, "error": sanitizar_texto(str(e))}), 500
 
 
 @app.route("/api/wallets/<wallet_name>/payments")
@@ -1011,8 +1013,8 @@ def get_wallet_payments(wallet_name: str):
         payments = monitor.get_wallet_payments(wallet_name, limit)
         return jsonify({"success": True, "payments": payments})
     except Exception as e:
-        print(f"⚠️ Error obteniendo historial para {wallet_name}: {e}")
-        return jsonify({"success": True, "payments": [], "warning": str(e)})
+        print(f"⚠️ Error obteniendo historial para {wallet_name}: {sanitizar_texto(str(e))}")
+        return jsonify({"success": True, "payments": [], "warning": sanitizar_texto(str(e))})
 
 
 @app.route("/api/config")
@@ -1059,7 +1061,7 @@ if __name__ == "__main__":
     """
     )
 
-    print(f"📍 LNbits Endpoint: {LNBITS_ENDPOINT}")
+    print(f"📍 LNbits Endpoint: {enmascarar_url(LNBITS_ENDPOINT)}")
     print(f"🗳️ Tasa de conversión: 1 voto = {SATS_PER_VOTE} sats")
     print(f"🔒 Modo: Solo lectura (Invoice Keys)")
     print("")

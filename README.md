@@ -48,8 +48,13 @@ Esta versión incorpora un modelo de seguridad **Cero Confianza (Zero-Trust)** d
   $$\text{Votos Restantes} = \left\lfloor \frac{\text{Saldo Actual (Sats)}}{\text{Sats por Voto}} \right\rfloor$$
 - Si la wallet se queda sin fondos, el backend bloquea automáticamente la emisión de votos (HTTP 403) y la interfaz táctil muestra un banner de cierre de mesa.
 
-### 6. 🖨️ Doble Auditoría con Comprobantes Físicos Térmicos
-- Cada voto confirmado genera un comprobante físico impreso con el nombre de la mesa, candidato, fecha/hora, **Payment Hash Lightning** y el **Checksum SHA-256** de la foto de la cédula cifrada, respaldado con un código QR para auditoría física cruzada en urna tradicional.
+### 6. 🖨️ Doble Auditoría con Comprobantes Oficiales PDF y Trazabilidad Forense
+- Cada voto confirmado genera un **comprobante oficial inalterable en formato PDF** con diseño estilo ticket térmico de alta resolución.
+- El documento PDF incorpora metadatos forenses nativos (`/Info` Dictionary y XMP):
+  - **Trazabilidad de Máquina**: Hostname emisor, Sistema Operativo, Kernel, Arquitectura y Runtime Python.
+  - **Identificadores Electorales**: Mesa ID, Candidato, Timestamp ISO 8601 UTC, Payment Hash Lightning y Checksum SHA-256 de la cédula cifrada.
+  - **Sello de Integridad HMAC-SHA256**: Firma matemática embebida que invalida el documento ante cualquier intento de edición.
+  - Herramienta de auditoría masiva disponible en [`audit/auditar_comprobantes_pdf.py`](file:///home/user/Documentos/sistema-votacion-btcol/audit/auditar_comprobantes_pdf.py).
 
 ### 7. 📸 Cifrado Biométrico de Cédulas Vinculado al Voto
 - Durante el sufragio, la foto del documento de identidad es capturada y cifrada al instante utilizando como clave simétrica el propio **Payment Hash** emitido por la red Lightning. Solo con las transacciones oficiales es posible restaurar las imágenes en la fase de escrutinio posterior.
@@ -112,31 +117,44 @@ sudo systemctl start tor
 
 ---
 
-### Paso 1: Generar la Clave Criptográfica Centralizada
+### Paso 1: Configurar Parámetros y Clave Criptográfica
 
-Genera una clave Fernet aleatoria de 44 caracteres Base64:
+1. Copia la plantilla de configuración global:
+```bash
+cp generador_configuracion_lote/config_global.example.md generador_configuracion_lote/config_global.md
+```
+
+2. Genera una nueva clave Fernet aleatoria y segura:
 ```bash
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
-*Ejemplo de salida:* `StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE=`
+
+3. Edita `generador_configuracion_lote/config_global.md` con:
+   - Tu dirección `.onion` de LNbits.
+   - Cantidad de `sats_per_vote`.
+   - La `clave_fernet` generada.
+
+4. Copia y edita tus carteras a partir del ejemplo:
+```bash
+cp generador_configuracion_lote/wallets.example.csv generador_configuracion_lote/wallets.csv
+```
 
 ---
 
-### Paso 2: Configurar y Desplegar las Mesas en Lote
+### Paso 2: Desplegar y Ofuscar las Mesas en Lote
 
-1. Edita el archivo `generador_configuracion_lote/wallets.csv` con las wallets y claves de candidatos y mesas.
-2. Edita `generador_configuracion_lote/config_global.md` con la URL de LNbits (`.onion`) y satoshis por voto.
-3. Ejecuta el generador pasando tu clave:
+Ejecuta el generador (leerá automáticamente `config_global.md` y `wallets.csv`):
 ```bash
-python3 generador_configuracion_lote/generar_configs.py --fernet-key "TU_CLAVE_FERNET="
+python3 generador_configuracion_lote/generar_configs.py
 ```
+*(Opcional: puedes sobreescribir la clave pasando `--fernet-key "TU_CLAVE="`)*
 
 **¿Qué hace este comando automáticamente?**
 - Genera `candidatos.json.enc` y `mesa_config.json.enc` para cada mesa.
 - Crea `data/wallets.json.enc` para los dashboards de monitoreo y auditoría.
 - Clona la urna electoral en `generador_configuracion_lote/mesas_desplegadas/mesa_code1/`, `mesa_code2/`, etc.
 - Inyecta la clave Fernet dentro del código de cada mesa.
-- **Ofusca el código con PyArmor** para blindar la terminal.
+- **Ofusca el código con PyArmor** para blindar la terminal contra manipulación física o extracción de claves.
 - Elimina los archivos `.json` en texto plano.
 
 ---
@@ -158,6 +176,10 @@ python3 app_web_mesa.py
 Solo para administradores electorales autorizados:
 
 ```bash
+# Lectura automática desde config_global.md
+python3 frontend/votos_dashboard.py
+
+# O pasando la clave explícita por CLI
 python3 frontend/votos_dashboard.py --fernet-key "TU_CLAVE_FERNET="
 ```
 *Acceso en navegador:* `http://localhost:5050`
@@ -169,6 +191,10 @@ python3 frontend/votos_dashboard.py --fernet-key "TU_CLAVE_FERNET="
 Para auditores y veedores del proceso:
 
 ```bash
+# Lectura automática desde config_global.md
+python3 audit/auditoria_ln_votos.py
+
+# O pasando la clave explícita por CLI
 python3 audit/auditoria_ln_votos.py --fernet-key "TU_CLAVE_FERNET="
 ```
 *Acceso en navegador:* `http://localhost:7070`

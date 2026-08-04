@@ -16,6 +16,12 @@ import os
 import sys
 from datetime import datetime
 
+# Importar funciones de seguridad
+script_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(script_dir)
+sys.path.insert(0, os.path.join(root_dir, "mesa_code"))
+from scripts.seguridad_logs import enmascarar_hash, sanitizar_texto
+
 # Importar la función de desencriptación individual
 from desencriptar_imagen import desencriptar_imagen
 
@@ -91,8 +97,8 @@ def desencriptar_lote_cedulas(clave_secreta: str = "AUTO", dir_entrada: str = No
         clave_efectiva = memo_hash_id if usar_modo_auto else clave_secreta
 
         print(f"[{idx}/{len(archivos_enc)}] 📦 Procesando: {nombre_enc}")
-        print(f"       🔑 Clave utilizada (Hash LNbits): {clave_efectiva[:32]}...")
-        print(f"       🛡️ Checksum SHA-256 archivo .enc: {checksum_actual[:32]}...")
+        print(f"       🔑 Clave utilizada (Hash LNbits): {enmascarar_hash(clave_efectiva)}")
+        print(f"       🛡️ Checksum SHA-256 archivo .enc: {enmascarar_hash(checksum_actual)}")
 
         # Nombre para la imagen restaurada individual
         nombre_salida = f"restaurada_{memo_hash_id}.jpg"

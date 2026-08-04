@@ -1,0 +1,7 @@
+"wallet_name","wallet_id","admin_key","invoice_key","initial_balance","status","error"
+"alice","11111111111111111111111111111111","","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","0","success",""
+"bob","22222222222222222222222222222222","","bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","0","success",""
+"voto_en_blanco","33333333333333333333333333333333","","cccccccccccccccccccccccccccccccc","0","success",""
+"mesa1","44444444444444444444444444444444","dddddddddddddddddddddddddddddddd","eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","500","success",""
+"mesa2","55555555555555555555555555555555","ffffffffffffffffffffffffffffffff","00000000000000000000000000000000","500","success",""
+"mesa3","66666666666666666666666666666666","1234567890abcdef1234567890abcdef","fedcba0987654321fedcba0987654321","500","success",""

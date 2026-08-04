@@ -12,15 +12,16 @@ import argparse
 from pathlib import Path
 from cryptography.fernet import Fernet
 
-# 🔑 Clave Fernet empotrada (quemada en el script)
-CLAVE_FERNET = b"rY7b4_x8K2vP9mN3qL0wJ5zT1uX8iO4aS7dF2gH5jK8="
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR / "mesa_code"))
+from scripts.seguridad_logs import resolver_clave_fernet
 
-def encriptar_contenido(datos_bytes: bytes) -> bytes:
-    """Encripta los bytes usando la clave Fernet empotrada."""
-    fernet = Fernet(CLAVE_FERNET)
+def encriptar_contenido(datos_bytes: bytes, clave_bytes: bytes) -> bytes:
+    """Encripta los bytes usando la clave Fernet provista."""
+    fernet = Fernet(clave_bytes)
     return fernet.encrypt(datos_bytes)
 
-def encriptar_archivo(ruta_json: Path) -> Path:
+def encriptar_archivo(ruta_json: Path, clave_bytes: bytes) -> Path:
     """Lee un archivo JSON, lo encripta y guarda el resultado con extensión .enc."""
     if not ruta_json.exists():
         print(f"❌ Error: El archivo '{ruta_json}' no existe.")
@@ -34,7 +35,7 @@ def encriptar_archivo(ruta_json: Path) -> Path:
         return None
 
     # Encriptar contenido
-    datos_cifrados = encriptar_contenido(raw_bytes)
+    datos_cifrados = encriptar_contenido(raw_bytes, clave_bytes)
     
     # Ruta de salida .enc (ejemplo: candidatos.json.enc)
     if not str(ruta_json).endswith(".enc"):
@@ -47,7 +48,8 @@ def encriptar_archivo(ruta_json: Path) -> Path:
     return ruta_salida
 
 def main():
-    parser = argparse.ArgumentParser(description="Encriptador de archivos candidatos.json, mesa_config.json y wallets.json con clave Fernet empotrada.")
+    parser = argparse.ArgumentParser(description="Encriptador de archivos candidatos.json, mesa_config.json y wallets.json.")
+    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet personalizada en Base64")
     parser.add_argument("--archivo", type=str, help="Ruta a un archivo .json específico para encriptar (ej: candidatos.json)")
     parser.add_argument("--dir", type=str, help="Directorio a buscar recursivamente archivos candidatos.json, mesa_config.json y otros .json")
     
@@ -95,10 +97,16 @@ def main():
     if not archivos_a_encriptar:
         print("⚠️ No se encontraron archivos candidatos.json o de configuración para encriptar.")
         sys.exit(1)
+
+    try:
+        clave_activa = resolver_clave_fernet(clave_custom=args.fernet_key)
+    except ValueError as e:
+        print(str(e))
+        sys.exit(1)
         
     print(f"🚀 Iniciando encriptación de {len(archivos_a_encriptar)} archivo(s)...")
     for f in archivos_a_encriptar:
-        encriptar_archivo(f)
+        encriptar_archivo(f, clave_activa)
 
 if __name__ == "__main__":
     main()

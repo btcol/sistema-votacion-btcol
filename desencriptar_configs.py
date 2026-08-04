@@ -12,16 +12,17 @@ import argparse
 from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 
-# 🔑 Clave Fernet empotrada (IDÉNTICA a encriptar_configs.py)
-CLAVE_FERNET = b"rY7b4_x8K2vP9mN3qL0wJ5zT1uX8iO4aS7dF2gH5jK8="
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR / "mesa_code"))
+from scripts.seguridad_logs import resolver_clave_fernet
 
-def desencriptar_contenido(bytes_cifrados: bytes) -> str:
-    """Desencripta los bytes cifrados usando la clave Fernet empotrada y retorna el string UTF-8."""
-    fernet = Fernet(CLAVE_FERNET)
+def desencriptar_contenido(bytes_cifrados: bytes, clave_bytes: bytes) -> str:
+    """Desencripta los bytes cifrados usando la clave Fernet provista y retorna el string UTF-8."""
+    fernet = Fernet(clave_bytes)
     bytes_descifrados = fernet.decrypt(bytes_cifrados)
     return bytes_descifrados.decode('utf-8')
 
-def desencriptar_archivo(ruta_enc: Path, ruta_salida: Path = None, restaurar: bool = False) -> dict:
+def desencriptar_archivo(ruta_enc: Path, clave_bytes: bytes, ruta_salida: Path = None, restaurar: bool = False) -> dict:
     """Lee un archivo .enc, lo desencripta y valida que sea JSON válido."""
     if not ruta_enc.exists():
         print(f"❌ Error: El archivo cifrado '{ruta_enc}' no existe.")
@@ -29,7 +30,7 @@ def desencriptar_archivo(ruta_enc: Path, ruta_salida: Path = None, restaurar: bo
         
     try:
         bytes_cifrados = ruta_enc.read_bytes()
-        texto_descifrado = desencriptar_contenido(bytes_cifrados)
+        texto_descifrado = desencriptar_contenido(bytes_cifrados, clave_bytes)
         datos_json = json.loads(texto_descifrado)
         
         print(f"🔓 Descifrado exitoso: {ruta_enc.name}")
@@ -57,7 +58,8 @@ def desencriptar_archivo(ruta_enc: Path, ruta_salida: Path = None, restaurar: bo
         return None
 
 def main():
-    parser = argparse.ArgumentParser(description="Desencriptador de archivos candidatos.json.enc, mesa_config.json.enc y otros .enc con clave Fernet empotrada.")
+    parser = argparse.ArgumentParser(description="Desencriptador de archivos candidatos.json.enc, mesa_config.json.enc y otros .enc.")
+    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet personalizada en Base64")
     parser.add_argument("--archivo", type=str, help="Ruta a un archivo .enc específico para descifrar (ej: candidatos.json.enc)")
     parser.add_argument("--salida", type=str, help="Ruta opcional para guardar el JSON descifrado")
     parser.add_argument("--dir", type=str, help="Directorio a buscar recursivamente archivos .enc")
@@ -65,6 +67,12 @@ def main():
     
     args = parser.parse_args()
     
+    try:
+        clave_activa = resolver_clave_fernet(clave_custom=args.fernet_key)
+    except ValueError as e:
+        print(str(e))
+        sys.exit(1)
+
     archivos_a_desencriptar = []
     
     if args.archivo:
@@ -97,7 +105,7 @@ def main():
     print(f"🚀 Iniciando desencriptación de {len(archivos_a_desencriptar)} archivo(s)...")
     for f in archivos_a_desencriptar:
         out_p = Path(args.salida) if args.salida and len(archivos_a_desencriptar) == 1 else None
-        resultado = desencriptar_archivo(f, ruta_salida=out_p, restaurar=args.restaurar)
+        resultado = desencriptar_archivo(f, clave_bytes=clave_activa, ruta_salida=out_p, restaurar=args.restaurar)
         if resultado:
             keys = list(resultado.keys())
             print(f"   └─ Llaves detectadas en JSON: {keys}")

@@ -17,13 +17,16 @@ El **Dashboard de Monitoreo BTCOL** (`frontend/votos_dashboard.py`) es una aplic
 
 El dashboard consume la configuración global cifrada en **`data/wallets.json.enc`** generada por el orquestador por lotes. 
 
-Para arrancar el dashboard de forma segura, el operador debe proporcionar la clave Fernet autorizada:
+Para arrancar el dashboard de forma segura, se puede proporcionar la clave Fernet autorizada mediante cualquiera de las siguientes opciones:
 
 ```bash
-# 1. Pasando la clave por argumento CLI (Recomendado)
+# 1. Automático (Lee clave_fernet desde generador_configuracion_lote/config_global.md)
+python3 frontend/votos_dashboard.py
+
+# 2. Pasando la clave por argumento CLI
 python3 frontend/votos_dashboard.py --fernet-key "TU_CLAVE_FERNET_BASE64="
 
-# 2. O mediante variable de entorno
+# 3. Mediante variable de entorno
 export FERNET_KEY="TU_CLAVE_FERNET_BASE64="
 python3 frontend/votos_dashboard.py
 ```

@@ -26,15 +26,13 @@ import argparse
 from pathlib import Path
 from cryptography.fernet import Fernet
 
-# 🔑 CLAVE FERNET CENTRALIZADA (Defínela aquí o pásala mediante el argumento --fernet-key)
-# Para generar una nueva clave aleatoria válida ejecuta:
-# python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-CLAVE_FERNET = b"StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR / "mesa_code"))
+from scripts.seguridad_logs import enmascarar_url, enmascarar_key, sanitizar_texto, resolver_clave_fernet, extraer_clave_fernet_md
 
-def encriptar_bytes(raw_bytes: bytes, clave_bytes: bytes = None) -> bytes:
-    """Encripta los bytes usando la clave Fernet especificada o la centralizada."""
-    key = clave_bytes or CLAVE_FERNET
-    fernet = Fernet(key)
+def encriptar_bytes(raw_bytes: bytes, clave_bytes: bytes) -> bytes:
+    """Encripta los bytes usando la clave Fernet proporcionada."""
+    fernet = Fernet(clave_bytes)
     return fernet.encrypt(raw_bytes)
 
 def inyectar_clave_fernet_en_mesa(config_py_path: Path, clave_bytes: bytes):
@@ -78,8 +76,14 @@ def cargar_config_md(md_path: Path) -> dict:
     if m_sats:
         config_defecto["sats_per_vote"] = int(m_sats.group(1))
         
-    print(f"   • url_lnbits:    {config_defecto['url_lnbits']}")
+    clave_md = extraer_clave_fernet_md(md_path)
+    if clave_md:
+        config_defecto["clave_fernet"] = clave_md
+
+    print(f"   • url_lnbits:    {enmascarar_url(config_defecto['url_lnbits'])}")
     print(f"   • sats_per_vote: {config_defecto['sats_per_vote']}")
+    if "clave_fernet" in config_defecto:
+        print(f"   • clave_fernet:  {enmascarar_key(config_defecto['clave_fernet'])}")
     
     return config_defecto
 
@@ -145,14 +149,15 @@ def ofuscar_directorio_mesa(mesa_dir: Path):
         "-r",
         str(mesa_dir / "app_web_mesa.py"),
         str(mesa_dir / "app_desktop.py"),
-        str(mesa_dir / "scripts")
+        str(mesa_dir / "scripts"),
+        str(mesa_dir / "impresora")
     ]
     
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
         
         for src_item in tmp_out.glob("*"):
-            if src_item.is_dir():
+            if src_item.is_dir() and src_item.name.startswith("pyarmor_runtime"):
                 dest_item = mesa_dir / src_item.name
                 if dest_item.exists():
                     shutil.rmtree(dest_item)
@@ -160,16 +165,17 @@ def ofuscar_directorio_mesa(mesa_dir: Path):
             elif src_item.is_file():
                 shutil.copy2(src_item, mesa_dir / src_item.name)
                 
-        scripts_obf = tmp_out / "scripts"
-        if scripts_obf.exists():
-            for item in scripts_obf.rglob("*.py"):
-                rel_p = item.relative_to(scripts_obf)
-                dest_p = mesa_dir / "scripts" / rel_p
-                dest_p.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, dest_p)
+        for folder_name in ["scripts", "impresora"]:
+            folder_obf = tmp_out / folder_name
+            if folder_obf.exists():
+                for item in folder_obf.rglob("*.py"):
+                    rel_p = item.relative_to(folder_obf)
+                    dest_p = mesa_dir / folder_name / rel_p
+                    dest_p.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(item, dest_p)
 
         shutil.rmtree(tmp_out)
-        print(f"   ✅ Código de {mesa_dir.name} ofuscado correctamente con PyArmor.")
+        print(f"   ✅ Código de {mesa_dir.name} (scripts e impresora) ofuscado correctamente con PyArmor.")
         
     except subprocess.CalledProcessError as e:
         print(f"⚠️ Error ejecutando PyArmor en {mesa_dir.name}: {e.stderr}")
@@ -179,7 +185,7 @@ def ofuscar_directorio_mesa(mesa_dir: Path):
 def procesar_csv(csv_path: Path, output_dir: Path, global_params: dict, clave_bytes: bytes, keep_json: bool = False, skip_obfuscate: bool = False):
     """Lee el CSV, genera/encripta JSONs, clona mesa_code por cada mesa, inyecta CLAVE_FERNET y ofusca con PyArmor."""
     print(f"📖 Leyendo CSV de entrada: {csv_path}")
-    print(f"🔑 Clave Fernet activa: {clave_bytes.decode('utf-8')[:10]}...")
+    print(f"🔑 Clave Fernet activa: {enmascarar_key(clave_bytes.decode('utf-8'))}")
     
     if not csv_path.exists():
         print(f"❌ Error: El archivo '{csv_path}' no existe.")
@@ -398,7 +404,7 @@ def main():
     parser.add_argument("--csv", type=str, default=str(csv_defecto), help="Ruta al archivo CSV de entrada")
     parser.add_argument("--config-md", type=str, default=str(config_md_defecto), help="Ruta al archivo .md con parámetros globales")
     parser.add_argument("--output-dir", type=str, default=str(script_dir), help="Directorio donde se generarán los desplegables")
-    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet personalizada en Base64 (sobrescribe la constante CLAVE_FERNET)")
+    parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet personalizada en Base64 (sobrescribe la lectura de config_global.md)")
     parser.add_argument("--keep-json", action="store_true", help="Conserva los archivos .json planos (por defecto se eliminan dejándolos solo .json.enc)")
     parser.add_argument("--skip-obfuscate", action="store_true", help="Omite la ofuscación con PyArmor")
     
@@ -406,7 +412,14 @@ def main():
     
     params_globales = cargar_config_md(Path(args.config_md))
     
-    clave_activa = args.fernet-key.encode('utf-8') if args.fernet_key else CLAVE_FERNET
+    try:
+        clave_activa = resolver_clave_fernet(
+            clave_custom=args.fernet_key,
+            md_path=Path(args.config_md)
+        )
+    except ValueError as e:
+        print(str(e))
+        sys.exit(1)
     
     procesar_csv(
         csv_path=Path(args.csv),

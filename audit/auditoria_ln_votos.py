@@ -37,10 +37,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent  # audit/ -> raíz
 DATA_DIR = BASE_DIR / "data"
 GEN_DIR = BASE_DIR / "generador_configuracion_lote"
 
-DATABASE_FILE = DATA_DIR / "database.sqlite3"
+sys.path.insert(0, str(BASE_DIR / "mesa_code"))
+from scripts.seguridad_logs import (
+    enmascarar_url,
+    enmascarar_key,
+    enmascarar_hash,
+    sanitizar_texto,
+    resolver_clave_fernet,
+    extraer_clave_fernet_md
+)
 
-# Clave Fernet por defecto (fallback si no se pasa por CLI ni por variable de entorno)
-CLAVE_FERNET_DEFECTO = b"StxCyZIWBe4dvdrp14Wd3-xMNLJyQfJMBjLL2A0VbfE="
+DATABASE_FILE = DATA_DIR / "database.sqlite3"
 
 
 def obtener_clave_fernet_activa(clave_custom: Optional[str] = None) -> bytes:
@@ -48,12 +55,9 @@ def obtener_clave_fernet_activa(clave_custom: Optional[str] = None) -> bytes:
     Resuelve la clave Fernet dando prioridad a:
     1. --fernet-key (Argumento CLI)
     2. FERNET_KEY (Variable de Entorno)
-    3. CLAVE_FERNET_DEFECTO (Constante de respaldo)
+    3. generador_configuracion_lote/config_global.md
     """
-    raw_key = clave_custom or os.getenv("FERNET_KEY")
-    if raw_key:
-        return raw_key.encode('utf-8') if isinstance(raw_key, str) else raw_key
-    return CLAVE_FERNET_DEFECTO
+    return resolver_clave_fernet(clave_custom=clave_custom, md_path=GEN_DIR / "config_global.md")
 
 
 # ============================================================================
@@ -1332,7 +1336,7 @@ if __name__ == "__main__":
             WALLETS_CONFIG = load_wallets_config(clave_custom=args.fernet_key)
             motor_auditoria = MotorAuditoriaElectoral(WALLETS_CONFIG)
         except Exception as e:
-            print(f"❌ Error al recargar configuración de auditoría con --fernet-key: {e}")
+            print(f"❌ Error al recargar configuración de auditoría con --fernet-key: {sanitizar_texto(str(e))}")
             sys.exit(1)
 
     print(
@@ -1344,7 +1348,7 @@ if __name__ == "__main__":
     """
     )
 
-    print(f"📍 LNbits Endpoint: {LNBITS_ENDPOINT}")
+    print(f"📍 LNbits Endpoint: {enmascarar_url(LNBITS_ENDPOINT)}")
     print(f"🗳️ Tasa de conversión: 1 voto = {SATS_PER_VOTE} sats")
     print("")
 
@@ -1355,7 +1359,7 @@ if __name__ == "__main__":
         print(f"   🔴 Votos Irregulares Detectados: {res['resumen']['votos_irregulares']}")
         print(f"   🛡️ Integridad Electoral: {res['resumen']['pct_integridad']}%")
     except Exception as e:
-        print(f"⚠️ Nota auditoría inicial: {e}")
+        print(f"⚠️ Nota auditoría inicial: {sanitizar_texto(str(e))}")
     print("")
     print(f"🚀 Dashboard Interactivo disponible en: http://localhost:{args.port}")
     print("")
