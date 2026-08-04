@@ -225,7 +225,15 @@ Las imágenes recuperadas y el reporte con Checksum SHA-256 se guardarán en:
 
 ---
 
-## 📄 Licencia
+## 📄 Licencia y Términos de Uso
 
-Software libre y de código abierto desarrollado bajo principios de transparencia democrática, soberanía digital y criptografía inmutable sobre **Bitcoin Lightning Network**.
+Este sistema ha sido concebido y desarrollado como una iniciativa de bien público orientada a fortalecer la soberanía digital, el libre ejercicio del sufragio y la transparencia absoluta en los procesos electorales mediante tecnología criptográfica inmutable sobre **Bitcoin / Lightning Network**.
+
+### 🏛️ Uso Público, Institucional y Comunitario
+* **Atribución de Autoría Obligatoria**: El código fuente, su arquitectura y sus algoritmos son de acceso libre para cualquier comunidad, institución u organización que busque garantizar elecciones libres y verificables, **siempre y cuando se atribuya y mencione formalmente al autor y propietario principal en cualquier despliegue, derivado o documentación técnica**.
+* **Propósito Ético e Institucional**: La exigencia de dicha atribución no responde a un interés de figuración personal, sino al imperativo ético de exigir que las instituciones públicas respeten los principios de transparencia, auditoría abierta e integridad técnica que garanticen sufragios verdaderamente libres para todas las poblaciones.
+
+### ⚖️ Explotación Comercial y Reservas Legales
+* **Condición Comercial**: Todo uso, empaquetamiento, integración o comercialización del software (o cualquiera de sus componentes) con **fines lucrativos o comerciales** exige la autorización expresa e inclusión formal del propietario y autor principal del proyecto.
+* **Acciones Legales por Usufructo**: La apropiación ilegítima, la explotación comercial no autorizada o la omisión deliberada del reconocimiento de autoría constituirá una infracción directa a los derechos de propiedad intelectual y **acarreará la interposición inmediata de demandas e impugnaciones legales** contra las entidades o personas involucradas por usufructo no autorizado del trabajo intelectual.
 
