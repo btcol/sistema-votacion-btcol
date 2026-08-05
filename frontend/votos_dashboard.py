@@ -470,7 +470,11 @@ class WalletMonitor:
 # ============================================================================
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    "http://localhost:5050",
+    "http://127.0.0.1:5050",
+    *[o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+])
 
 monitor = WalletMonitor(LNBITS_ENDPOINT, WALLETS_CONFIG)
 
@@ -1040,7 +1044,7 @@ def health_check():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dashboard Web de Monitoreo Electoral en Tiempo Real (BTCOL)")
     parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet en Base64 para descifrar wallets.json.enc (Solo administradores autorizados)")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host del servidor Flask (por defecto: 0.0.0.0)")
+    parser.add_argument("--host", type=str, default=os.getenv("DASHBOARD_HOST", "127.0.0.1"), help="Host del servidor Flask (por defecto: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=5050, help="Puerto del servidor Flask (por defecto: 5050)")
     parser.add_argument("--debug", action="store_true", help="Activa el modo debug de Flask")
     

@@ -225,6 +225,20 @@ Las imágenes recuperadas y el reporte con Checksum SHA-256 se guardarán en:
 
 ---
 
+---
+
+## 🔐 Acceso al Módulo Central de Urna (`mesa_code`)
+
+Por motivos de seguridad electoral, prevención de despliegues no autorizados y protección del protocolo de blindaje físico de terminales, el código fuente del módulo de terminales de mesa (**`mesa_code`**) se distribuye de manera controlada y no se aloja en el árbol público del repositorio.
+
+### 📩 ¿Cómo solicitar acceso completo al código fuente?
+Instituciones públicas, veedurías ciudadanas, auditores electorales, centros de investigación y desarrolladores interesados en auditar o desplegar el sistema pueden solicitar acceso al repositorio completo:
+1. Envíe una solicitud formal al **correo electrónico visible en el perfil de GitHub del propietario**.
+2. Indique en el asunto: `[Solicitud de Acceso] Sistema Electoral BTCOL - <Nombre de la Organización / Investigador>`.
+3. Describa brevemente el propósito de la auditoría, investigación o despliegue institucional.
+
+---
+
 ## 📄 Licencia y Términos de Uso
 
 Este sistema ha sido concebido y desarrollado como una iniciativa de bien público orientada a fortalecer la soberanía digital, el libre ejercicio del sufragio y la transparencia absoluta en los procesos electorales mediante tecnología criptográfica inmutable sobre **Bitcoin / Lightning Network**.

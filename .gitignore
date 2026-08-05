@@ -1,4 +1,9 @@
 # ============================================================================
+# CODIGO CORE DE TERMINALES DE MESA (RESTRINGIDO / DISTRIBUCION PRIVADA)
+# ============================================================================
+mesa_code/
+
+# ============================================================================
 # ARCHIVOS SENSIBLES Y CONFIGURACIONES PRIVADAS DE REGISTRO / API KEYS
 # ============================================================================
 # Contienen Admin Keys e Invoice Keys reales de LNbits

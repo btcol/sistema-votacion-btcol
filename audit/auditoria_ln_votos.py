@@ -536,7 +536,11 @@ motor_auditoria = MotorAuditoriaElectoral(WALLETS_CONFIG)
 # ============================================================================
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    "http://localhost:7070",
+    "http://127.0.0.1:7070",
+    *[o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+])
 
 
 HTML_AUDIT_TEMPLATE = """
@@ -1325,7 +1329,7 @@ def api_ejecutar_auditoria():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dashboard Web de Auditoría Electoral LNbits (BTCOL)")
     parser.add_argument("--fernet-key", type=str, default=None, help="Clave Fernet en Base64 para descifrar wallets.json.enc (Solo auditores autorizados)")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host del servidor Flask (por defecto: 0.0.0.0)")
+    parser.add_argument("--host", type=str, default=os.getenv("AUDIT_HOST", "127.0.0.1"), help="Host del servidor Flask (por defecto: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=7070, help="Puerto del servidor Flask (por defecto: 7070)")
     parser.add_argument("--debug", action="store_true", help="Activa el modo debug de Flask")
     
