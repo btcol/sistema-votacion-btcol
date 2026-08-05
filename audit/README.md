@@ -58,11 +58,14 @@ Adicionalmente, el módulo de auditoría incluye el script CLI especializado par
 # 1. Auditar un comprobante individual
 python3 audit/auditar_comprobantes_pdf.py --archivo mesa_code/impresora/comprobantes_emitidos/comprobante_ejemplo.pdf
 
-# 2. Auditoría masiva de toda una mesa o directorio
-python3 audit/auditar_comprobantes_pdf.py --dir mesa_code/impresora/comprobantes_emitidos
+# 2. Auditar una mesa específica (ejemplo: mesa_code6)
+python3 audit/auditar_comprobantes_pdf.py --dir mesa_code6
 
-# 3. Exportar resultados consolidados a CSV y JSON
-python3 audit/auditar_comprobantes_pdf.py --dir . --export-csv audit/reporte_forense.csv --export-json audit/reporte_forense.json
+# 3. Auditoría masiva de todas las mesas desplegadas (desde cualquier directorio):
+python3 audit/auditar_comprobantes_pdf.py --dir generador_configuracion_lote/mesas_desplegadas --export-csv audit/reporte_forense.csv
+
+# 4. Auto-descubrimiento automático de todas las mesas (sin argumentos):
+python3 audit/auditar_comprobantes_pdf.py --export-json audit/reporte_forense.json
 ```
 
 ### Validaciones Realizadas:

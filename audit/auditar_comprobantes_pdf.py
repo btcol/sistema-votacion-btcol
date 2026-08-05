@@ -210,15 +210,66 @@ def auditar_archivo_pdf(ruta_pdf: Path) -> Dict[str, Any]:
     return resultado
 
 
-def auditar_lote_directorios(ruta_busqueda: Path) -> List[Dict[str, Any]]:
+def resolver_rutas_busqueda(entradas: Optional[List[str]] = None) -> List[Path]:
     """
-    Busca recursivamente todos los archivos .pdf y ejecuta la auditoría forense.
+    Resuelve una lista de cadenas de texto (nombres de mesa, rutas relativas o absolutas)
+    a rutas existentes en el sistema de archivos. Si no se pasa ninguna entrada,
+    auto-descubre automáticamente todas las mesas desplegadas y la mesa base.
+    """
+    rutas_resueltas = []
+    
+    if not entradas:
+        # Auto-descubrimiento de mesas
+        desplegadas_dir = BASE_DIR / "generador_configuracion_lote" / "mesas_desplegadas"
+        if desplegadas_dir.exists():
+            rutas_resueltas.append(desplegadas_dir)
+        mesa_base = BASE_DIR / "mesa_code"
+        if mesa_base.exists():
+            rutas_resueltas.append(mesa_base)
+        if not rutas_resueltas:
+            rutas_resueltas.append(BASE_DIR)
+        return rutas_resueltas
+
+    for ent in entradas:
+        p = Path(ent)
+        # 1. Probar ruta tal cual (relativa al CWD actual o absoluta)
+        if p.exists():
+            rutas_resueltas.append(p.resolve())
+            continue
+
+        # 2. Probar relativa a BASE_DIR (raíz del proyecto)
+        p_base = (BASE_DIR / ent).resolve()
+        if p_base.exists():
+            rutas_resueltas.append(p_base)
+            continue
+
+        # 3. Probar en generador_configuracion_lote/mesas_desplegadas/ (ej: "mesa_code1", "mesa_code6")
+        p_mesa = (BASE_DIR / "generador_configuracion_lote" / "mesas_desplegadas" / ent).resolve()
+        if p_mesa.exists():
+            rutas_resueltas.append(p_mesa)
+            continue
+
+        # 4. Probar en mesa_code/
+        p_code = (BASE_DIR / "mesa_code" / ent).resolve()
+        if p_code.exists():
+            rutas_resueltas.append(p_code)
+            continue
+
+        print(f"⚠️ Advertencia: No se encontró el directorio ni la mesa '{ent}'")
+
+    return rutas_resueltas
+
+
+def auditar_lote_directorios(rutas_busqueda: List[Path]) -> List[Dict[str, Any]]:
+    """
+    Busca recursivamente todos los archivos .pdf en la lista de rutas y ejecuta la auditoría forense.
     """
     archivos_pdf = []
-    if ruta_busqueda.is_file() and ruta_busqueda.suffix.lower() == ".pdf":
-        archivos_pdf.append(ruta_busqueda)
-    elif ruta_busqueda.is_dir():
-        archivos_pdf.extend(list(ruta_busqueda.rglob("*.pdf")))
+    for r in rutas_busqueda:
+        if r.is_file() and r.suffix.lower() == ".pdf":
+            archivos_pdf.append(r)
+        elif r.is_dir():
+            archivos_pdf.extend(list(r.rglob("*.pdf")))
 
     # Deduplicar
     vistos = set()
@@ -230,7 +281,8 @@ def auditar_lote_directorios(ruta_busqueda: Path) -> List[Dict[str, Any]]:
             dedup.append(f)
 
     resultados = []
-    print(f"🔍 Auditando {len(dedup)} archivo(s) PDF en '{ruta_busqueda}'...\n")
+    rutas_str = ", ".join(f"'{r}'" for r in rutas_busqueda)
+    print(f"🔍 Auditando {len(dedup)} archivo(s) PDF en {rutas_str}...\n")
     for f in dedup:
         res = auditar_archivo_pdf(f)
         resultados.append(res)
@@ -304,28 +356,22 @@ def main():
         description="Herramienta de Auditoría Forense y Validación de Comprobantes PDF Electorales BTCOL."
     )
     parser.add_argument("--archivo", type=str, help="Ruta a un único archivo PDF a auditar")
-    parser.add_argument("--dir", type=str, help="Directorio a escanear recursivamente en busca de comprobantes PDF")
+    parser.add_argument("--dir", type=str, nargs="*", help="Directorio(s) o mesa(s) a escanear (ej: mesa_code1, mesa_code6, o rutas completas)")
     parser.add_argument("--export-csv", type=str, help="Ruta para exportar los resultados en formato CSV")
     parser.add_argument("--export-json", type=str, help="Ruta para exportar los resultados en formato JSON")
     
     args = parser.parse_args()
 
-    if not args.archivo and not args.dir:
-        # Por defecto buscar en la carpeta de comprobantes emitidos de la mesa local o proyecto
-        dir_defecto = BASE_DIR / "mesa_code" / "impresora" / "comprobantes_emitidos"
-        if dir_defecto.exists():
-            ruta_objetivo = dir_defecto
-        else:
-            ruta_objetivo = BASE_DIR
-    elif args.archivo:
-        ruta_objetivo = Path(args.archivo)
+    if args.archivo:
+        rutas_objetivo = resolver_rutas_busqueda([args.archivo])
     else:
-        ruta_objetivo = Path(args.dir)
+        rutas_objetivo = resolver_rutas_busqueda(args.dir)
 
-    resultados = auditar_lote_directorios(ruta_objetivo)
+    resultados = auditar_lote_directorios(rutas_objetivo)
 
     if not resultados:
-        print(f"⚠️ No se encontraron archivos PDF para auditar en: {ruta_objetivo}")
+        rutas_str = ", ".join(f"'{r}'" for r in rutas_objetivo)
+        print(f"⚠️ No se encontraron archivos PDF para auditar en: {rutas_str}")
         sys.exit(0)
 
     imprimir_tabla_auditoria(resultados)
